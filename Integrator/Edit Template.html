@@ -1,0 +1,201 @@
+<!-- EDIT TEMPLATE SCRIPT -->
+
+<div id="div-buttons">
+    <input type="button" id="btn-ss" class="btn btn-primary custom-btn" value="Save Template Changes" onclick="saveSpreadsheet()"/>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="input-group">
+                <input type="text" id="no-of-rows" class="form-control" placeholder="No. of rows...">
+                <span class="input-group-btn">
+                <button class="btn btn-default" type="button" onclick="addRows()">Add Rows</button>
+                </span>
+            </div><!-- /input-group -->
+        </div><!-- /.col-lg-4 -->
+    </div>
+
+</div>
+
+<!-- Spread.Sheets widget container -->
+<div id="spreadContainer"></div>
+
+<script type="text/javascript">
+    var lc = "124285779463225#A0jZcJCL3V6csFmZ0IiczRmI1pjIs9WQisnOiQkIsISP3EVah3CNr3iaklXNGRmZnJXOzN6UNNna0JlclNnU7FTRPNTeXNWV9s4VMNnNVZmMyk4dEhEVIFmMmlkekFGOHx4doF6RBRmQNhjVtdjYjh4bQdnW7Z7YiojITJCL6MjM7IjMzQzN0IicfJye35XX3JyMiZzZiojIDJCLiETMuYHITpEIkFWZyB7UiojIOJyebpjIkJHUiwiI8IzN4ATMgIjM9ADOxAjMiojI4J7QiwiIxIjMxgTMwIjI0ICc8VkIsICZ4xEIpkHdQhCIzVWan3Gbv9GajVGVgUncl5kI0ISYONkIsISNyIzM6QTO7cTN8IDNyE7IJI";
+
+    GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
+    var spread;                         //instantiate spreadsheet variable
+
+    $(function(){
+        loadSpreadsheet();
+        attachFieldOnchange();
+    });
+
+    function createCellComments(){
+        var comment = new GC.Spread.Sheets.Comments.Comment();
+        var activeSheet = spread.getActiveSheet();
+        comment.text("this is a test comment in yellow bg");
+        comment.backColor("yellow");
+        comment.foreColor("green");
+        // comment.displayMode(GC.Spread.Sheets.Comments.DisplayMode.alwaysShown);
+        activeSheet.getCell(2,2).comment(comment);
+    }
+
+    function getDropdownValues(fieldName, tableName, columnIndex){
+        var qry = "SELECT "+fieldName+" FROM "+tableName;
+        rbf_selectQuery(qry, 999, function(data){
+            if(data){
+                var values = data;
+                var dropdownValues = [];
+                for(var i=0, len=values.length; i < len;i++){
+                    dropdownValues.push(values[i][0]);
+                }
+                var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+                var activeSheet = spread.getActiveSheet();
+                    cellType2.items(dropdownValues);
+                    activeSheet.getCell(-1, columnIndex).cellType(cellType2);
+            }
+        });
+    }
+
+    /* Loads the saved .json file in the current template */
+    function loadSpreadsheet(){
+        spread = new GC.Spread.Sheets.Workbook(document.getElementById("spreadContainer"));
+        $.ajax({
+            url: "{!Template_File#url}",
+            datatype: "json",
+            success: function (data) {
+
+                var jsonStr = JSON.stringify(Object(data));
+                spread.fromJSON(JSON.parse(jsonStr));
+                
+                $("#spreadContainer, #other-buttons").show();
+                // swal("", 'Finished loading the JSON template of "{!name#text}"', "success");
+            },
+            error: function (e) {
+                swal("Error loading spreadsheet", e, "error");
+            }
+        });
+    }
+
+    /* Inititate saving of spreadsheet in the Template object */
+    function saveSpreadsheet(){
+        $("#div-buttons").hide();
+        var spread = GC.Spread.Sheets.findControl(document.getElementById("spreadContainer"));
+        saveFileAsJson(spread, "Template", "Template_File");
+    }
+
+    /* Save current spreadsheet as a JSON file in a Rollbase object */
+    function saveFileAsJson(spreadsheet, destObj, destFile){
+        try{
+            var jsonVal     = JSON.stringify(spreadsheet.toJSON()),
+                base64Val   = btoa(jsonVal),
+                recordId    = parseInt("{!id}");
+
+            if(base64Val && recordId > 0){
+                var fields = {
+                    'Template_Name': 'test'
+                };
+                
+                r_login(g_un, g_pw, function(session){ // Initiate first login to generate first session
+                    if(session){
+                        var f_name = "spreadsheet.json";
+                        // Save the file in Base64 format:
+                        r_setBinaryData(session, recordId, destFile, base64Val, "application/json", f_name, function(data, recId) {
+                            swal("", "Changes made to the Template has been saved", "success");
+                            $("#div-buttons").show();
+                        });
+                    }else{ console.log("Invalid Session Id"); }
+                });
+            }
+        }catch(e){
+            swal("Error saving json file", e, "error");
+        }
+    } //(end)saveFileAsJson
+
+    /* Re-usable Rest Functions */
+    var g_un = 'dev1', g_pw = 'rollbase123';
+    var baseURL = "http://dev.ppm.cloud/rest/api/";
+    function r_login(un, pw, cb){
+        $.ajax({
+            url         :   baseURL+"login?loginName="+un+"&password="+pw+"&output=JSON",
+            contentType :   false,
+            processData :   false,
+            cache       :   false,
+            success: function(resp) {
+                var data = Object(resp);
+                cb(data.sessionId);
+            }, 
+            error: function(resp) {
+                var data = Object(resp);
+                console.log("Error in r_login: " + String(data.responseText));
+            }
+        });
+    } //(end)r_login
+
+    function r_create(session, obj, fields, cb){
+        var fieldSet = '';
+        $.each(fields, function(key, value) {
+            fieldSet += '<Field name="'+ key + '">' + value + '</Field>';
+        });
+        $.ajax({
+            url         :   baseURL+"create?sessionId="+session+"&output=JSON",
+            contentType :   "text/xml",
+            type        :   "POST",
+            data        : 	"<?xml version='1.0' encoding='utf-8' ?>" +
+                            "<data objName='"+obj+"' useIds='false'>" +
+                            fieldSet + "</data>",
+            success: function(resp) {
+                var data = Object(resp);
+                cb(data.id);
+            }, 
+            error: function(resp) {
+                var data = Object(resp);
+                console.log("Error in r_create: " + String(data.responseText));
+            }
+        });
+    } //(end)r_create
+
+    function r_setBinaryData(session, id, fieldName, value, contentType, fileName, cb) {
+        var data = new FormData();
+            data.append('id',id);
+            data.append('fieldName',fieldName);
+            data.append('contentType',contentType);
+            data.append('fileName',fileName);
+            data.append('value',value);
+        $.ajax({
+            url         :   baseURL+"setBinaryData?sessionId="+session,
+            type        :   "POST",
+            contentType :   false,
+            processData :   false,
+            cache       :   false,
+            data        :   data,
+            success: function(resp) {
+                var data = Object(resp);
+                cb(resp, data.sessionId);
+            }, 
+            error: function(resp) {
+                var data = Object(resp);
+                cb("Error in r_setBinaryData: " + String(data.responseText), id);
+            }
+        });
+    } //(end)r_setBinaryData
+
+    /* Retrieve Integration Name based on selected field */
+    function attachFieldOnchange(){
+        $("#R28783").on("change", function(){
+            var selectedField = parseInt( $("#R28783").val() );
+            if(selectedField > 0){
+                rbf_selectValue("SELECT Field_Code FROM Template_Object_Field WHERE id = "+selectedField, function(data){
+                    $("#Field_Integration_Name").val(data).select();
+                });
+            }
+        });
+    }
+
+    function clearHelperFields(){
+        rbf_setFieldValue("R28766", "");                    //Rollbase Object
+        rbf_setFieldValue("R28783", "");                    //Field
+        rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
+    }
+
+</script>

@@ -12,6 +12,7 @@
         height: 100%;
         min-height: 500px;
         border: 1px solid gray;
+        /* display: none; */
     }
     .custom-btn{
         margin: 10px 5px 20px 0px;
@@ -20,3 +21,45 @@
         margin-bottom: 10px;
     }
 </style>
+
+<script type="text/javascript">
+    /*********************/
+    /* Global Variables  */
+    /*********************/
+    
+    var spread,                     // Spreadsheet Workbook
+        activeSheet;                // Spreadsheet's Active Sheet
+
+    /*********************/
+    /* Re-Usable Scripts */
+    /*********************/
+
+    function spreadjs_getSpread(){
+        spread = new GC.Spread.Sheets.Workbook(document.getElementById("spreadContainer"));
+    }
+
+    function spreadjs_getACtiveSheet(){
+        activeSheet = spread.getActiveSheet();
+    }
+
+    /* Converts the date to MM/dd/yyyy format */
+    function formatDate(dateVal){
+        if(dateVal){
+            dateVal = new Date(String(dateVal));
+            var result = rbf_formatDate(dateVal, "MM/dd/yyyy");
+            return result;
+        }
+        return "";
+    }
+
+    /* Adds additional rows at the bottom of the sheet */
+    function addRows(){
+        var noOfRows = parseInt($("#no-of-rows").val());
+        if(noOfRows > 0){
+            var sheet = spread.getActiveSheet();
+                sheet.addRows(-1,noOfRows);  
+        }else{
+            swal("Error", "Please enter a value for the no. of Rows", "error");
+        }
+    }
+</script>

@@ -1,308 +1,229 @@
-        <!-- VIEW RESOURCE LIST SCRIPT -->
+<!-- VIEW RESOURCE LIST SCRIPT -->
 
-        <div id="div-buttons">
-            <input type="button" id="btn-lo" class="btn btn-primary custom-btn" value="Load Template" onclick="loadOriginalTemplate()"/>
-            <!-- <input type="button" id="btn-ct" class="btn btn-primary custom-btn" value="Convert Template" onclick="convertTemplateForUsers()"/> -->
-            <input type="button" id="btn-cu" class="btn btn-success custom-btn" value="Save Changes" onclick="createOrUpdateRecords()"/>
+<div id="div-buttons">
+    <input type="button" id="btn-lo" class="btn btn-primary custom-btn" value="Load Template" onclick="loadOriginalTemplate()"/>
+    <!-- <input type="button" id="btn-ct" class="btn btn-primary custom-btn" value="Convert Template" onclick="convertTemplateForUsers()"/> -->
+    <input type="button" id="btn-cu" class="btn btn-success custom-btn" value="Save Changes" onclick="createOrUpdateRecords()"/>
 
-            <div class="row">
-                <div class="col-lg-4">
-                    <div class="input-group">
-                        <input type="text" id="no-of-rows" class="form-control" placeholder="No. of rows...">
-                        <span class="input-group-btn">
-                        <button class="btn btn-default" type="button" onclick="addRows()">Add Rows</button>
-                        </span>
-                    </div><!-- /input-group -->
-                </div><!-- /.col-lg-4 -->
-            </div>
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="input-group">
+                <input type="text" id="no-of-rows" class="form-control" placeholder="No. of rows...">
+                <span class="input-group-btn">
+                <button class="btn btn-default" type="button" onclick="addRows()">Add Rows</button>
+                </span>
+            </div><!-- /input-group -->
+        </div><!-- /.col-lg-4 -->
+    </div>
 
-        </div>
+</div>
 
-        <!-- Spread.Sheets widget container -->
-        <div id="spreadContainer"></div>
+<!-- Spread.Sheets widget container -->
+<div id="spreadContainer"></div>
 
-        <script type="text/javascript">
-            var lc = "124285779463225#A0jZcJCL3V6csFmZ0IiczRmI1pjIs9WQisnOiQkIsISP3EVah3CNr3iaklXNGRmZnJXOzN6UNNna0JlclNnU7FTRPNTeXNWV9s4VMNnNVZmMyk4dEhEVIFmMmlkekFGOHx4doF6RBRmQNhjVtdjYjh4bQdnW7Z7YiojITJCL6MjM7IjMzQzN0IicfJye35XX3JyMiZzZiojIDJCLiETMuYHITpEIkFWZyB7UiojIOJyebpjIkJHUiwiI8IzN4ATMgIjM9ADOxAjMiojI4J7QiwiIxIjMxgTMwIjI0ICc8VkIsICZ4xEIpkHdQhCIzVWan3Gbv9GajVGVgUncl5kI0ISYONkIsISNyIzM6QTO7cTN8IDNyE7IJI";
+<script type="text/javascript">
+    var lc = "124285779463225#A0jZcJCL3V6csFmZ0IiczRmI1pjIs9WQisnOiQkIsISP3EVah3CNr3iaklXNGRmZnJXOzN6UNNna0JlclNnU7FTRPNTeXNWV9s4VMNnNVZmMyk4dEhEVIFmMmlkekFGOHx4doF6RBRmQNhjVtdjYjh4bQdnW7Z7YiojITJCL6MjM7IjMzQzN0IicfJye35XX3JyMiZzZiojIDJCLiETMuYHITpEIkFWZyB7UiojIOJyebpjIkJHUiwiI8IzN4ATMgIjM9ADOxAjMiojI4J7QiwiIxIjMxgTMwIjI0ICc8VkIsICZ4xEIpkHdQhCIzVWan3Gbv9GajVGVgUncl5kI0ISYONkIsISNyIzM6QTO7cTN8IDNyE7IJI";
 
-            GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
-            
-            $(function(){
-                // loadOriginalTemplate();
-            });
+    GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
+    
+    $(function(){
+        // loadOriginalTemplate();
+    });
 
-            /* Loads the saved .json file in the current template */
-            function loadOriginalTemplate(){
+    /* Loads the saved .json file in the current template */
+    function loadOriginalTemplate(){
 
-                spreadjs_getSpread();
+        spreadjs_getSpread();
+        
+        $.ajax({
+            url: "{!R30518.Template_File#url}",
+            datatype: "json",
+            success: function (data) {
+
+                var jsonStr = JSON.stringify(Object(data));
+                spread.fromJSON(JSON.parse(jsonStr));
                 
-                $.ajax({
-                    url: "{!R30518.Template_File#url}",
-                    datatype: "json",
-                    success: function (data) {
-
-                        var jsonStr = JSON.stringify(Object(data));
-                        spread.fromJSON(JSON.parse(jsonStr));
-                        
-                        $("#spreadContainer").show();
-
-                        convertTemplateForUsers();
-                    },
-                    error: function (e) {
-                        swal("Error loading spreadsheet", e, "error");
-                    }
-                });
-            }
-
-            /* Converts the chosen template to a template where users can enter data that will be saved into RB */
-            var columnHeaders = [];
-            function convertTemplateForUsers(){
-
-                spreadjs_getACtiveSheet();
-                
-                var ctr = 0, currentCellVal = String(activeSheet.getCell(0,ctr).text());
-                while(currentCellVal){  //loop through each cell's column header until reaching a blank column
-                    if(currentCellVal){
-                        columnHeaders.push(currentCellVal);
-                    }
-                    ctr++;
-                    currentCellVal = String(activeSheet.getCell(0,ctr).text())
-                }  
-
-                if(columnHeaders.length > 0) retrieveRecords();
-            }
-
-            /* To-do:
-                - picklist values dynamic
-                - several objects query
-                - date format
-                - dropdown format
-                - detect if record is updated
-                ok - add id in front of query
-            */
-            function retrieveRecords(){
-                var currVal         = "",
-                    qry             = "SELECT id",
-                    sourceObject    = columnHeaders[0].split(".")[0];
-
-                for(var i=0, len=columnHeaders.length; i < len; i++){
-                    currVal = columnHeaders[i].split(".")[1];
-                    qry += ", "+ currVal;
-                }
-                qry += " FROM " + sourceObject;
-
-                columnHeaders.unshift("id");    //add record 'id' at index 1
-                
-                rbf_selectQuery(qry, 999, function(data){
-                    convert2dArrToJSON(data);
-                });
-            }
-
-            function convert2dArrToJSON(arr){
-                var resultArr = [];
-                for(var i=0, len=arr.length; i < len; i++){
-                    
-                    var jsonObj = {};
-                    for(var j=0, len2=columnHeaders.length; j < len2; j++){
-                        var currColumn  = (j > 0) ? columnHeaders[j].split(".")[1] : columnHeaders[j],
-                            currType    = columnHeaders[j].split(".")[2];
-                            
-                        if(currType == "DT"){
-                            jsonObj[currColumn] = formatDate(arr[i][j]);  
-                        }else{
-                            jsonObj[currColumn] = arr[i][j];
-                        }
-                    }
-                   
-                    resultArr.push(jsonObj);
-                }
-                
-                populateRecords(resultArr);
-            }
-            
-            function populateRecords(tableData){
-
-                activeSheet.setDataSource(tableData);
-                
-
-                // var dropdownValues = ["Equipment","Financial","Material","People"];
-                // var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-                //     cellType2.items(dropdownValues);
-
-                // activeSheet.getCell(-1, 3).cellType(cellType2);
-                resizeColumns();
-                detectChangedSheet();
-                swal("", 'Finished loading records using the "{!name#text}" template', "success");
-            }
-
-            function resizeColumns(){
-                for(var i=0; i < columnHeaders.length; i++){
-                    activeSheet.getCell(-1, i).width(150);  //set cell width
-                }
-            }
-
-            function detectChangedSheet(){
-                activeSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
-                    if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
-                        // console.log("Row number " +info.row+ " has been updated.");
-                        var instance = new GC.Spread.Sheets.CellRange(activeSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
-                        instance.backColor(updatedCellColor);
-                    }
-                });
-            }
-
-            var successfulUpdate = 0, successfulCreate = 0, totalRows = 0;
-            function createOrUpdateRecords(){
-                spreadjs_getACtiveSheet();
-                totalRows = activeSheet.getRowCount();
-
-                var resourceList = parseInt("{!id}");  //Resource List
-                for(var i=0; i < totalRows; i++){
-                    var objName = "Resource";
-                    var recordId = parseInt(activeSheet.getValue(i, 0));
-                    
-                    var instance = new GC.Spread.Sheets.CellRange(activeSheet, i, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
-                    if(String(instance.backColor()) == updatedCellColor || !(recordId > 0)){ //detect if there was an update made
-                        var fieldMap = {
-                            "Resource_List"     : resourceList
-                            // "Code"              : activeSheet.getValue(i, 1),
-                            // "Resource_Name"     : activeSheet.getValue(i, 2),
-                            // "Resource_Type"     : activeSheet.getValue(i, 3),
-                            // "Start_Date_Active" : formatDate(activeSheet.getValue(i, 4)),
-                            // "End_Date_Active"   : formatDate(activeSheet.getValue(i, 5))
-                        }
-                        for(var j=1, len=columnHeaders.length-1; j < len; j++){
-                            var currField   = columnHeaders[j].split(".")[1],
-                                currType    = columnHeaders[j].split(".")[2];
-
-                            if(currType == "DT"){
-                                fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
-                            }else{
-                                fieldMap[currField] = activeSheet.getValue(i,j);
-                            }
-                        }  
-                    
-                        if(recordId > 0){
-                            rbf_updateRecord(objName, recordId, fieldMap, false, function(data){
-                                incrementCounter("update");
-                            }, false);
-                        }else{
-                            rbf_createRecord(objName, fieldMap, false, function(data){
-                                incrementCounter("create");
-                            }, false);
-                        }
-                    }
-                }
                 $("#spreadContainer").show();
+
+                convertTemplateForUsers();
+            },
+            error: function (e) {
+                swal("Error loading spreadsheet", e, "error");
             }
+        });
+    }
 
-            /* Check created/updated records then reload the page */
-            function incrementCounter(ctrToIncrement){
-                if(ctrToIncrement == "update") successfulUpdate++; else successfulCreate++;
-                
-                // if((successfulUpdate > 0 successfulCreate) == totalRows){
-                    var message = "";
-                    if(successfulUpdate > 0 && successfulCreate == 0) message = "Successfully updated "+successfulUpdate+" record(s).";
-                    else if(successfulCreate > 0 && successfulUpdate == 0) message = "Successfully created "+successfulUpdate+" record(s).";
-                    else message = "Successfully updated "+successfulUpdate+" & created "+successfulCreate+" record(s).";
+    /* Converts the chosen template to a template where users can enter data that will be saved into RB */
+    var columnHeaders = [];
+    function convertTemplateForUsers(){
 
-                    swal(message, "The page will now reload to reflect the changes.", "success").then((value) => {
-                        window.location.reload();
-                    });
-                // }
+        spreadjs_getACtiveSheet();
+        
+        var ctr = 0, currentCellVal = String(activeSheet.getCell(0,ctr).text());
+        while(currentCellVal){  //loop through each cell's column header until reaching a blank column
+            if(currentCellVal){
+                columnHeaders.push(currentCellVal);
             }
+            ctr++;
+            currentCellVal = String(activeSheet.getCell(0,ctr).text())
+        }  
 
+        if(columnHeaders.length > 0) retrieveRecords();
+    }
 
+    /* To-do:
+        - picklist values dynamic
+        - several objects query
+        ok - date format
+        - dropdown format
+        ok - detect if record is updated
+        ok - add id in front of query
+    */
+    function retrieveRecords(){
+        var currVal         = "",
+            qry             = "SELECT id",
+            sourceObject    = columnHeaders[0].split(".")[0];
+
+        for(var i=0, len=columnHeaders.length; i < len; i++){
+            currVal = columnHeaders[i].split(".")[1];
+            qry += ", "+ currVal;
+        }
+        qry += " FROM " + sourceObject;
+
+        // var resourceList = parseInt("{!id}");  //Resource List   
+        // if(resourceList > 0) qry += " WHERE Resource_List = "+resourceList;
+        // console.log("qry = "+qry);
+        columnHeaders.unshift("id");    //add record 'id' at index 1
+        
+        rbf_selectQuery(qry, 999, function(data){
+            convert2dArrToJSON(data);
+        });
+    }
+
+    function convert2dArrToJSON(arr){
+        var resultArr = [];
+        for(var i=0, len=arr.length; i < len; i++){
             
-            /*******************/
-            /* Working Scripts */
-            /*******************/
-
-            function retrieveRecords_original(){
-                // spread = new GC.Spread.Sheets.Workbook(document.getElementById("spreadContainer"));
-                var qry = "SELECT id, Code, Resource_Name, Resource_Type#value, Start_Date_Active, End_Date_Active FROM Resource";
-                rbf_selectQuery(qry, 999, function(data){
-                    convert2dArrToJSON_old(data);
-
-                    spreadjs_getACtiveSheet();
-                    activeSheet.getCell(-1, 0).width(50);
-                    activeSheet.getCell(-1, 1).width(170);
-                    activeSheet.getCell(-1, 2).width(170);
-                    activeSheet.getCell(-1, 3).width(170);
-                    activeSheet.getCell(-1, 4).width(170);
-                    activeSheet.getCell(-1, 5).width(170);
-                });
-            }
-
-            function convert2dArrToJSON_old(arr){
-                var resultArr = [];
-                for(var i=0, len=arr.length; i < len; i++){
-                    var jsonObj = {};
-                        jsonObj["ID"] = arr[i][0];
-                        jsonObj["Code"] = arr[i][1];
-                        jsonObj["Resource_Name"] = arr[i][2];
-                        jsonObj["Resource_Type"] = arr[i][3];
-                        jsonObj["Start_Date_Active"] = formatDate(arr[i][4]);
-                        jsonObj["End_Date_Active"] = formatDate(arr[i][5]);
+            var jsonObj = {};
+            for(var j=0, len2=columnHeaders.length; j < len2; j++){
+                var currColumn  = (j > 0) ? columnHeaders[j].split(".")[1] : columnHeaders[j],
+                    currType    = columnHeaders[j].split(".")[2];
                     
-                    resultArr.push(jsonObj);
+                if(currType == "DT"){
+                    jsonObj[currColumn] = formatDate(arr[i][j]);  
+                }else{
+                    jsonObj[currColumn] = arr[i][j];
                 }
-                populateRecords_old(resultArr);
             }
+            
+            resultArr.push(jsonObj);
+        }
+        
+        populateRecords(resultArr);
+    }
+    
+    function populateRecords(tableData){
 
-            function populateRecords_old(tableData){
-                spreadjs_getACtiveSheet();
+        activeSheet.setDataSource(tableData);
+        addNewRow(true);//add 1 new default row
 
-                activeSheet.setDataSource(tableData);
+        // var dropdownValues = ["Equipment","Financial","Material","People"];
+        // var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+        //     cellType2.items(dropdownValues);
 
-                var dropdownValues = ["Equipment","Financial","Material","People"];
-                var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-                    cellType2.items(dropdownValues);
+        // activeSheet.getCell(-1, 3).cellType(cellType2);
+        resizeColumns();
+        detectChangedSheet();
+        swal("", 'Finished loading records using the "{!name#text}" template', "success");
+    }
 
-                activeSheet.getCell(-1, 3).cellType(cellType2);
+    function resizeColumns(){
+        for(var i=0; i < columnHeaders.length; i++){
+            activeSheet.getCell(-1, i).width(150);  //set cell width
+        }
+    }
+
+    function detectChangedSheet(){
+        activeSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
+            if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
+                // console.log("Row number " +info.row+ " has been updated.");
+                var instance = new GC.Spread.Sheets.CellRange(activeSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
+                instance.backColor(updatedCellColor);
+
+                var editRecord = parseInt(activeSheet.getCell(info.row, 0));
+                if( !(editRecord > 0) ) addNewRow();    //automatically add rows once user is at the last row
             }
+        });
+    }
+    
+    /* Adds a new row at the bottom */
+    function addNewRow(isFirstLoad){
+        var row = activeSheet.getRowCount();
 
-            // var successfulUpdate = 0, successfulCreate = 0, totalRows = 0;
-            function createOrUpdateRecords_old(){
-                spreadjs_getACtiveSheet();
-                totalRows = activeSheet.getRowCount();
+        var cellColorNew = activeSheet.getCell(parseInt(row) - 1, 0).backColor();
+        //Add 1 row after the last row:
+        if(cellColorNew == "#85ef85" || isFirstLoad) activeSheet.addRows(row, 1);
+    }
 
-                var resourceList = parseInt("{!id}");  //Resource List
-                for(var i=0; i < totalRows; i++){
-                    var objName = "Resource";
-                    var recordId = parseInt(activeSheet.getValue(i, 0));
-                    var fieldMap = {
-                            "Resource_List"     : resourceList,
-                            "Code"              : activeSheet.getValue(i, 1),
-                            "Resource_Name"     : activeSheet.getValue(i, 2),
-                            "Resource_Type"     : activeSheet.getValue(i, 3),
-                            "Start_Date_Active" : formatDate(activeSheet.getValue(i, 4)),
-                            "End_Date_Active"   : formatDate(activeSheet.getValue(i, 5))
-                        }
-                    if(recordId > 0){
-                        rbf_updateRecord(objName, recordId, fieldMap, false, function(data){
-                            incrementCounter("update");
-                        }, false);
+    /* Creates / Updates records based on the Spreadsheet */
+    var successfulUpdate = 0, successfulCreate = 0, totalRows = 0;
+    function createOrUpdateRecords(){
+        spreadjs_getACtiveSheet();
+        totalRows = activeSheet.getRowCount();
+
+        var resourceList = parseInt("{!id}");  //Resource List
+        for(var i=0; i < totalRows; i++){
+            var objName = "Resource";
+            var recordId = parseInt(activeSheet.getValue(i, 0));
+            
+            var instance = new GC.Spread.Sheets.CellRange(activeSheet, i, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
+            if(String(instance.backColor()) == updatedCellColor || !(recordId > 0)){ //detect if there was an update made
+                var fieldMap = {
+                    "Resource_List"     : resourceList
+                    // "Code"              : activeSheet.getValue(i, 1),
+                    // "Resource_Name"     : activeSheet.getValue(i, 2),
+                    // "Resource_Type"     : activeSheet.getValue(i, 3),
+                    // "Start_Date_Active" : formatDate(activeSheet.getValue(i, 4)),
+                    // "End_Date_Active"   : formatDate(activeSheet.getValue(i, 5))
+                }
+                for(var j=1, len=columnHeaders.length-1; j < len; j++){
+                    var currField   = columnHeaders[j].split(".")[1],
+                        currType    = columnHeaders[j].split(".")[2];
+
+                    if(currType == "DT"){
+                        fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
                     }else{
-                        rbf_createRecord(objName, fieldMap, false, function(data){
-                            incrementCounter("create");
-                        }, false);
+                        fieldMap[currField] = activeSheet.getValue(i,j);
                     }
-                }
-                $("#spreadContainer").show();
-            }
-
-            /* Check created/updated records then reload the page */
-            function incrementCounter_old(ctrToIncrement){
-                if(ctrToIncrement == "update") successfulUpdate++; else successfulCreate++;
-                
-                if((successfulUpdate + successfulCreate) == totalRows){
-                    var message = "Successfully updated/created Resource records.";
-                    if(successfulUpdate == 0 ) message = "Successfully created "+successfulCreate+" records.";
-                    if(successfulCreate == 0 ) message = "Successfully updated "+successfulUpdate+" records.";
-
-                    swal(message, "The page will now reload to reflect the changes.", "success").then((value) => {
-                        window.location.reload();
-                    });
+                }  
+            
+                if(recordId > 0){
+                    rbf_updateRecord(objName, recordId, fieldMap, false, function(data){
+                        incrementCounter("update");
+                    }, false);
+                }else{
+                    rbf_createRecord(objName, fieldMap, false, function(data){
+                        incrementCounter("create");
+                    }, false);
                 }
             }
-        </script>
+        }
+        $("#spreadContainer").show();
+    }
+
+    /* Check created/updated records then reload the page */
+    function incrementCounter(ctrToIncrement){
+        if(ctrToIncrement == "update") successfulUpdate++; else successfulCreate++;
+        
+        // if((successfulUpdate > 0 successfulCreate) == totalRows){
+            var message = "";
+            if(successfulUpdate > 0 && successfulCreate == 0) message = "Successfully updated "+successfulUpdate+" record(s).";
+            else if(successfulCreate > 0 && successfulUpdate == 0) message = "Successfully created "+successfulUpdate+" record(s).";
+            else message = "Successfully updated "+successfulUpdate+" & created "+successfulCreate+" record(s).";
+
+            swal(message, "The page will now reload to reflect the changes.", "success").then((value) => {
+                window.location.reload();
+            });
+        // }
+    }
+</script>

@@ -57,7 +57,7 @@
     var columnHeaders = [];
     function convertTemplateForUsers(){
 
-        spreadjs_getACtiveSheet();
+        spreadjs_getActiveSheet();
         
         var ctr = 0, currentCellVal = String(activeSheet.getCell(0,ctr).text());
         while(currentCellVal){  //loop through each cell's column header until reaching a blank column
@@ -168,7 +168,7 @@
     /* Creates / Updates records based on the Spreadsheet */
     var successfulUpdate = 0, successfulCreate = 0, totalRows = 0;
     function createOrUpdateRecords(){
-        spreadjs_getACtiveSheet();
+        spreadjs_getActiveSheet();
         totalRows = activeSheet.getRowCount();
 
         var resourceList = parseInt("{!id}");  //Resource List

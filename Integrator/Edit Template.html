@@ -1,7 +1,9 @@
 <!-- EDIT TEMPLATE SCRIPT -->
 
 <div id="div-buttons">
-    <input type="button" id="btn-ss" class="btn btn-primary custom-btn" value="Save Template Changes" onclick="saveSpreadsheet()"/>
+    <input type="button" id="btn-lt" class="btn btn-primary custom-btn" value="Load Template" onclick="loadTemplate()"/>
+    <input type="button" id="btn-dc" class="btn btn-secondary custom-btn" value="Pre-set Default Columns" onclick="retrieveColumns()"/>
+    <input type="button" id="btn-ss" class="btn btn-success custom-btn" value="Save Template Changes" onclick="saveSpreadsheet()"/>
 
     <div class="row">
         <div class="col-lg-4">
@@ -23,16 +25,36 @@
     var lc = "124285779463225#A0jZcJCL3V6csFmZ0IiczRmI1pjIs9WQisnOiQkIsISP3EVah3CNr3iaklXNGRmZnJXOzN6UNNna0JlclNnU7FTRPNTeXNWV9s4VMNnNVZmMyk4dEhEVIFmMmlkekFGOHx4doF6RBRmQNhjVtdjYjh4bQdnW7Z7YiojITJCL6MjM7IjMzQzN0IicfJye35XX3JyMiZzZiojIDJCLiETMuYHITpEIkFWZyB7UiojIOJyebpjIkJHUiwiI8IzN4ATMgIjM9ADOxAjMiojI4J7QiwiIxIjMxgTMwIjI0ICc8VkIsICZ4xEIpkHdQhCIzVWan3Gbv9GajVGVgUncl5kI0ISYONkIsISNyIzM6QTO7cTN8IDNyE7IJI";
 
     GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
-    var spread;                         //instantiate spreadsheet variable
+    
+    // $(function(){
+        // loadSpreadsheet();
+        // attachFieldOnchange();
+    // });
 
-    $(function(){
+    function loadTemplate(){
         loadSpreadsheet();
         attachFieldOnchange();
-    });
+    }
+
+    function retrieveColumns(){
+        var qry = "SELECT Field_Code FROM Template_Object_Field ORDER BY Query_Order ASC";
+        rbf_selectQuery(qry, 999, function(data){
+            if(data){
+                spreadjs_getActiveSheet();
+                for(var i=0, len=data.length; i < len; i++){
+                    // console.log(data[i][0]);
+                    activeSheet.getCell(0,i).text(data[i][0]);
+                    activeSheet.autoFitColumn(i);
+                    swal("All fields have been added as default columns", "You may modify the template as necessary.", "success");
+                }
+            }
+        });
+    }
 
     function createCellComments(){
-        var comment = new GC.Spread.Sheets.Comments.Comment();
-        var activeSheet = spread.getActiveSheet();
+        spreadjs_getActiveSheet();
+        var comment = new GC.Spread.Sheets.Comments.Comment();       
+        // var activeSheet = spread.getActiveSheet();
         comment.text("this is a test comment in yellow bg");
         comment.backColor("yellow");
         comment.foreColor("green");
@@ -50,7 +72,8 @@
                     dropdownValues.push(values[i][0]);
                 }
                 var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-                var activeSheet = spread.getActiveSheet();
+                // var activeSheet = spread.getActiveSheet();
+                spreadjs_getActiveSheet();
                     cellType2.items(dropdownValues);
                     activeSheet.getCell(-1, columnIndex).cellType(cellType2);
             }
@@ -59,7 +82,8 @@
 
     /* Loads the saved .json file in the current template */
     function loadSpreadsheet(){
-        spread = new GC.Spread.Sheets.Workbook(document.getElementById("spreadContainer"));
+        spreadjs_getSpread();
+        // spread = new GC.Spread.Sheets.Workbook(document.getElementById("spreadContainer"));
         $.ajax({
             url: "{!Template_File#url}",
             datatype: "json",

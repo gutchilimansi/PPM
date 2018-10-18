@@ -2,7 +2,6 @@
 
 <div id="div-buttons">
     <input type="button" id="btn-lo" class="btn btn-primary custom-btn" value="Load Template" onclick="loadOriginalTemplate()"/>
-    <!-- <input type="button" id="btn-ct" class="btn btn-primary custom-btn" value="Convert Template" onclick="convertTemplateForUsers()"/> -->
     <input type="button" id="btn-cu" class="btn btn-success custom-btn" value="Save Changes" onclick="createOrUpdateRecords()"/>
 
     <div class="row">
@@ -15,7 +14,6 @@
             </div><!-- /input-group -->
         </div><!-- /.col-lg-4 -->
     </div>
-
 </div>
 
 <!-- Spread.Sheets widget container -->
@@ -30,7 +28,7 @@
         // loadOriginalTemplate();
     });
 
-    /* Loads the saved .json file in the current template */
+    /* Loads the saved JSON file in the current template */
     function loadOriginalTemplate(){
 
         spreadjs_getSpread();
@@ -54,7 +52,7 @@
     }
 
     /* Converts the chosen template to a template where users can enter data that will be saved into RB */
-    var columnHeaders = [];
+    var columnHeaders = [], sourceObject="", noOfRecords = 0;
     function convertTemplateForUsers(){
 
         spreadjs_getActiveSheet();
@@ -67,32 +65,52 @@
             ctr++;
             currentCellVal = String(activeSheet.getCell(0,ctr).text())
         }  
+        
+        sourceObject = columnHeaders[0].split(".")[0];  //get the source object where the records will come from
 
-        if(columnHeaders.length > 0) retrieveRecords();
+        if(columnHeaders.length > 0){
+            rbf_selectNumber("SELECT COUNT(id) FROM "+sourceObject+" WHERE Resource_List = "+ parseInt("{!id}"), function(data){
+                if(parseInt(data) > 0){
+                    noOfRecords = parseInt(data);
+                    retrieveRecords();                  //There are records related to the Resource List
+                }else{
+                    presetColumnHeaders();              //There are NO records related to the Resource List
+                }
+            });
+        }
+    }
+
+    /* Set the default column headers for Resource Lists without Resources yet */
+    function presetColumnHeaders(){
+        var resultArr = [], jsonObj = {};
+        for(var j=0, len2=columnHeaders.length; j < len2; j++){
+                var currColumn  = columnHeaders[j].split(".")[1];
+                jsonObj[currColumn] = "";
+            }
+        
+        resultArr.push(jsonObj);
+        console.log("resultArr at preset:");
+        console.log(resultArr);
+        if(resultArr) populateRecords(resultArr);   //Add column headers only without any records
     }
 
     /* To-do:
         - picklist values dynamic
         - several objects query
-        ok - date format
         - dropdown format
-        ok - detect if record is updated
-        ok - add id in front of query
     */
+
+    /* Retrieves records from the applicable Rollbase table */
     function retrieveRecords(){
         var currVal         = "",
-            qry             = "SELECT id",
-            sourceObject    = columnHeaders[0].split(".")[0];
+            qry             = "SELECT id";
 
         for(var i=0, len=columnHeaders.length; i < len; i++){
             currVal = columnHeaders[i].split(".")[1];
             qry += ", "+ currVal;
         }
-        qry += " FROM " + sourceObject;
+        qry += " FROM " + sourceObject+ " WHERE Resource_List = "+ parseInt("{!id}");
 
-        // var resourceList = parseInt("{!id}");  //Resource List   
-        // if(resourceList > 0) qry += " WHERE Resource_List = "+resourceList;
-        // console.log("qry = "+qry);
         columnHeaders.unshift("id");    //add record 'id' at index 1
         
         rbf_selectQuery(qry, 999, function(data){
@@ -100,6 +118,7 @@
         });
     }
 
+    /* Converts the given 2d array result set to a JSON object */
     function convert2dArrToJSON(arr){
         var resultArr = [];
         for(var i=0, len=arr.length; i < len; i++){
@@ -122,19 +141,26 @@
         populateRecords(resultArr);
     }
     
+    /* Adds the records in the spreadjs sheet depending on the JSON data set */
     function populateRecords(tableData){
 
         activeSheet.setDataSource(tableData);
-        addNewRow(true);//add 1 new default row
 
         // var dropdownValues = ["Equipment","Financial","Material","People"];
         // var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
         //     cellType2.items(dropdownValues);
 
         // activeSheet.getCell(-1, 3).cellType(cellType2);
+
         resizeColumns();
         detectChangedSheet();
-        swal("", 'Finished loading records using the "{!name#text}" template', "success");
+
+        if(noOfRecords > 0){
+            addNewRow(true);//add 1 new default row
+            swal("Finished loading "+noOfRecords+" Resources using the chosen template", "", "success");
+        }else{
+            swal("There are no Resources under the selected Resource List","You may now add new Resource records","info");
+        }
     }
 
     function resizeColumns(){
@@ -143,6 +169,7 @@
         }
     }
 
+    /* Detects if there is a changed cell in a row then changes the background color */
     function detectChangedSheet(){
         activeSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
             if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
@@ -161,8 +188,8 @@
         var row = activeSheet.getRowCount();
 
         var cellColorNew = activeSheet.getCell(parseInt(row) - 1, 0).backColor();
-        //Add 1 row after the last row:
-        if(cellColorNew == "#85ef85" || isFirstLoad) activeSheet.addRows(row, 1);
+        
+        if(cellColorNew == "#85ef85" || isFirstLoad) activeSheet.addRows(row, 1); //Add 1 row after the last row
     }
 
     /* Creates / Updates records based on the Spreadsheet */
@@ -172,24 +199,23 @@
         totalRows = activeSheet.getRowCount();
 
         var resourceList = parseInt("{!id}");  //Resource List
-        for(var i=0; i < totalRows; i++){
+        for(var i=0; i < totalRows-1; i++){
             var objName = "Resource";
-            var recordId = parseInt(activeSheet.getValue(i, 0));
+            var recordId = (noOfRecords == 0) ? 0 : parseInt(activeSheet.getValue(i, 0));
             
             var instance = new GC.Spread.Sheets.CellRange(activeSheet, i, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
             if(String(instance.backColor()) == updatedCellColor || !(recordId > 0)){ //detect if there was an update made
                 var fieldMap = {
-                    "Resource_List"     : resourceList
-                    // "Code"              : activeSheet.getValue(i, 1),
-                    // "Resource_Name"     : activeSheet.getValue(i, 2),
-                    // "Resource_Type"     : activeSheet.getValue(i, 3),
-                    // "Start_Date_Active" : formatDate(activeSheet.getValue(i, 4)),
-                    // "End_Date_Active"   : formatDate(activeSheet.getValue(i, 5))
+                    "Resource_List"     : resourceList      //default in the current Resource list in scope
                 }
-                for(var j=1, len=columnHeaders.length-1; j < len; j++){
+                var startingIndex = (noOfRecords == 0) ? 0 : 1;
+                for(var j=startingIndex, len=columnHeaders.length; j < len; j++){
                     var currField   = columnHeaders[j].split(".")[1],
                         currType    = columnHeaders[j].split(".")[2];
-
+                    // console.log("currField = " +currField);
+                    // console.log("currType = " +currType);
+                    // console.log("currValue = " +activeSheet.getValue(i,j));
+                    // console.log("-------------");
                     if(currType == "DT"){
                         fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
                     }else{
@@ -215,15 +241,13 @@
     function incrementCounter(ctrToIncrement){
         if(ctrToIncrement == "update") successfulUpdate++; else successfulCreate++;
         
-        // if((successfulUpdate > 0 successfulCreate) == totalRows){
-            var message = "";
-            if(successfulUpdate > 0 && successfulCreate == 0) message = "Successfully updated "+successfulUpdate+" record(s).";
-            else if(successfulCreate > 0 && successfulUpdate == 0) message = "Successfully created "+successfulUpdate+" record(s).";
-            else message = "Successfully updated "+successfulUpdate+" & created "+successfulCreate+" record(s).";
+        var message = "";
+        if(successfulUpdate > 0 && successfulCreate == 0) message = "Successfully updated "+successfulUpdate+" record(s).";
+        else if(successfulCreate > 0 && successfulUpdate == 0) message = "Successfully created "+successfulCreate+" record(s).";
+        else message = "Successfully updated "+successfulUpdate+" & created "+successfulCreate+" record(s).";
 
-            swal(message, "The page will now reload to reflect the changes.", "success").then((value) => {
-                window.location.reload();
-            });
-        // }
+        swal(message, "The page will now reload to reflect the changes.", "success").then((value) => {
+            window.location.reload();
+        });
     }
 </script>

@@ -89,40 +89,41 @@
             }
         
         resultArr.push(jsonObj);
-        console.log("resultArr at preset:");
-        console.log(resultArr);
         if(resultArr) populateRecords(resultArr);   //Add column headers only without any records
     }
 
     /* To-do:
-        - picklist values dynamic
         - several objects query
-        - dropdown format
+        - searchable dropdowns
+        - deleting of records
     */
 
     /* Retrieves records from the applicable Rollbase table */
     function retrieveRecords(){
-        var currVal         = "",
+        var currVal         = "", currType = "",
             qry             = "SELECT id";
 
         for(var i=0, len=columnHeaders.length; i < len; i++){
             currVal = columnHeaders[i].split(".")[1];
+            
+            //retrieve the actual #values for picklist and lookup fields:
+            currType = columnHeaders[i].split(".")[2];
+            if(currType == "PL") currVal += "#value"; 
             qry += ", "+ currVal;
         }
         qry += " FROM " + sourceObject+ " WHERE Resource_List = "+ parseInt("{!id}");
-
+        // console.log("qry = " +qry);
         columnHeaders.unshift("id");    //add record 'id' at index 1
         
         rbf_selectQuery(qry, 999, function(data){
-            convert2dArrToJSON(data);
+            convert2dArrColumnsToJSON(data);
         });
     }
 
-    /* Converts the given 2d array result set to a JSON object */
-    function convert2dArrToJSON(arr){
+    /* Converts the given 2d array columns result set to a JSON object */
+    function convert2dArrColumnsToJSON(arr){
         var resultArr = [];
         for(var i=0, len=arr.length; i < len; i++){
-            
             var jsonObj = {};
             for(var j=0, len2=columnHeaders.length; j < len2; j++){
                 var currColumn  = (j > 0) ? columnHeaders[j].split(".")[1] : columnHeaders[j],
@@ -134,7 +135,6 @@
                     jsonObj[currColumn] = arr[i][j];
                 }
             }
-            
             resultArr.push(jsonObj);
         }
         
@@ -146,26 +146,90 @@
 
         activeSheet.setDataSource(tableData);
 
-        // var dropdownValues = ["Equipment","Financial","Material","People"];
-        // var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-        //     cellType2.items(dropdownValues);
-
-        // activeSheet.getCell(-1, 3).cellType(cellType2);
-
+        setPicklistOrLookup();
         resizeColumns();
-        detectChangedSheet();
 
         if(noOfRecords > 0){
             addNewRow(true);//add 1 new default row
-            swal("Finished loading "+noOfRecords+" Resources using the chosen template", "", "success");
+            swal("Finished loading "+noOfRecords+" Resources using the chosen template", "", "success").then((value) => {
+                detectChangedSheet();
+            });
         }else{
             swal("There are no Resources under the selected Resource List","You may now add new Resource records","info");
         }
     }
 
+    function setPicklistOrLookup(){
+        for(var i=1, len=columnHeaders.length; i < len; i++){
+            var currColumn  = columnHeaders[i],
+                currType    = currColumn.split(".")[2];
+            if(currType == "PL"){
+                convertToPicklist(i,currColumn);
+            }else if(currType == "LU"){
+                convertToLookup(i,currColumn);
+            }
+        }
+    }
+
+    /* Converts a column's cells to Picklist fields */
+    function convertToPicklist(currIndex, currColumn){
+        var qry = "SELECT Picklist_Values FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
+        rbf_selectValue(qry, function(data){
+            if(data){
+                var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+                    cellType.items( data.split("|") );
+
+                activeSheet.getCell(-1, currIndex).cellType(cellType);
+            }
+        });
+    }
+
+    /* Converts a column's cells to Lookup fields */
+    function convertToLookup(currIndex, currColumn){
+        var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
+        rbf_selectValue(qry, function(data){
+            if(data){
+                qry = "SELECT id, name FROM "+data;
+                rbf_selectQuery(qry, 999, function(data2){
+                    if(data2){
+                        var lookupValuesArr = [], lookupValuesJson = {};
+                        // console.log("in convertToLookup");
+                        // console.log(data2);
+                        for(var i=0, len=data2.length; i < len; i++){
+                            currId      = data2[i][0],
+                            currName    = data2[i][1];
+                            lookupValuesArr.push(currId+"|"+currName);
+                            lookupValuesJson[currId] = currId+"|"+currName;
+                        }
+                        var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+                            cellType.items( lookupValuesArr );
+
+                        activeSheet.getCell(-1, currIndex).cellType(cellType);
+
+                        changeLookupIDToValues(currIndex, lookupValuesJson);
+                    }
+                });
+            }
+        });
+    }
+   
+    function changeLookupIDToValues(currIndex, lookupValuesJson){
+        // console.log(lookupValuesJson);
+
+        var currCell    = "",
+            rowCount    = activeSheet.getRowCount();
+        for(var i=0; i < rowCount; i++){
+            currCell = activeSheet.getCell(i,currIndex);
+            // console.log("currCell = " +currCell.text());
+            // console.log("value = "+lookupValuesJson[currCell.text()]);
+            currCell.text( lookupValuesJson[currCell.text()] );
+        }
+    }
+
+    /* Resizes the columns to fix widths */
     function resizeColumns(){
         for(var i=0; i < columnHeaders.length; i++){
-            activeSheet.getCell(-1, i).width(150);  //set cell width
+            activeSheet.getCell(-1, i).width(140);  //set cell width
         }
     }
 
@@ -185,11 +249,11 @@
     
     /* Adds a new row at the bottom */
     function addNewRow(isFirstLoad){
-        var row = activeSheet.getRowCount();
+        var rowCount = activeSheet.getRowCount();
 
-        var cellColorNew = activeSheet.getCell(parseInt(row) - 1, 0).backColor();
+        var cellColorNew = activeSheet.getCell(parseInt(rowCount) - 1, 0).backColor();
         
-        if(cellColorNew == "#85ef85" || isFirstLoad) activeSheet.addRows(row, 1); //Add 1 row after the last row
+        if(cellColorNew == updatedCellColor || isFirstLoad) activeSheet.addRows(rowCount, 1); //Add 1 row after the last row
     }
 
     /* Creates / Updates records based on the Spreadsheet */
@@ -212,10 +276,7 @@
                 for(var j=startingIndex, len=columnHeaders.length; j < len; j++){
                     var currField   = columnHeaders[j].split(".")[1],
                         currType    = columnHeaders[j].split(".")[2];
-                    // console.log("currField = " +currField);
-                    // console.log("currType = " +currType);
-                    // console.log("currValue = " +activeSheet.getValue(i,j));
-                    // console.log("-------------");
+                        
                     if(currType == "DT"){
                         fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
                     }else{

@@ -37,18 +37,23 @@
     }
 
     function retrieveColumns(){
-        var qry = "SELECT Field_Code FROM Template_Object_Field ORDER BY Query_Order ASC";
-        rbf_selectQuery(qry, 999, function(data){
-            if(data){
-                spreadjs_getActiveSheet();
-                for(var i=0, len=data.length; i < len; i++){
-                    // console.log(data[i][0]);
-                    activeSheet.getCell(0,i).text(data[i][0]);
-                    activeSheet.autoFitColumn(i);
-                    swal("All fields have been added as default columns", "You may modify the template as necessary.", "success");
+        var chosenObject = parseInt(rbf_getFieldValue("R28766"));
+        if(chosenObject){
+            var qry = "SELECT Field_Code FROM Template_Object_Field WHERE R28779 = "+chosenObject+" ORDER BY Query_Order ASC";
+            rbf_selectQuery(qry, 999, function(data){
+                if(data){
+                    spreadjs_getActiveSheet();
+                    for(var i=0, len=data.length; i < len; i++){
+                        // console.log(data[i][0]);
+                        activeSheet.getCell(0,i).text(data[i][0]);
+                        activeSheet.autoFitColumn(i);
+                        swal("All fields have been added as default columns", "You may modify the template as necessary.", "success");
+                    }
                 }
-            }
-        });
+            });
+        }else{
+            swal("Please select a Rollbase Object", "", "error");
+        }
     }
 
     function createCellComments(){
@@ -217,7 +222,7 @@
     }
 
     function clearHelperFields(){
-        rbf_setFieldValue("R28766", "");                    //Rollbase Object
+        // rbf_setFieldValue("R28766", "");                    //Rollbase Object
         rbf_setFieldValue("R28783", "");                    //Field
         rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
     }

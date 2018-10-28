@@ -2,9 +2,9 @@
 
 <div id="div-buttons">
     <input type="button" id="btn-lo" class="btn btn-primary custom-btn" value="Load Template" onclick="loadOriginalTemplate()"/>
-    <input type="button" id="btn-cu" class="btn btn-success custom-btn" value="Save Changes" onclick="createOrUpdateRecords()"/>
+    <input type="button" id="btn-cu" class="btn btn-success custom-btn default-hidden" value="Save Changes" onclick="createOrUpdateRecords()"/>
 
-    <div class="row">
+    <div class="row default-hidden">
         <div class="col-lg-4">
             <div class="input-group">
                 <input type="text" id="no-of-rows" class="form-control" placeholder="No. of rows...">
@@ -43,7 +43,7 @@
                 spread.fromJSON(JSON.parse(jsonStr));
                 
                 $("#spreadContainer").show();
-
+                $(".default-hidden").show();
                 convertTemplateForUsers();
             },
             error: function (e) {
@@ -55,29 +55,67 @@
     /* Converts the chosen template to a template where users can enter data that will be saved into RB */
     var columnHeaders = [], noOfRecords = 0,
         sourceObject = "{!Object_Integration_Name}";  //get the source object where the records will come from
+    var headerSheet = "", filterSheet = "", qryFilters ="";
     function convertTemplateForUsers(){
+        
+        //Loop through each Sheet
+        var currentSheets = spread.getSheetCount(), currSheetName="";
+        for(var i=0, len=currentSheets; i < len; i++){
+            currSheetName = spread.sheets[i].name();
+            if(currSheetName == "Filters"){
+                filterSheet = spread.sheets[i];
 
-        spreadjs_getActiveSheet();
-        
-        var ctr = 0, currentCellVal = String(activeSheet.getCell(0,ctr).text());
-        while(currentCellVal){  //loop through each cell's column header until reaching a blank column
-            if(currentCellVal){
-                columnHeaders.push(currentCellVal);
-            }
-            ctr++;
-            currentCellVal = String(activeSheet.getCell(0,ctr).text())
-        }  
-        
-        if(columnHeaders.length > 0){
-            var qry = "SELECT COUNT(id) FROM "+sourceObject;
-            rbf_selectNumber(qry, function(data){
-                if(parseInt(data) > 0){
-                    noOfRecords = parseInt(data);
-                    retrieveRecords();                  //There are records related to the Source Object
-                }else{
-                    presetColumnHeaders();              //There are NO records related to the Source Object
+                var rowCount = filterSheet.getRowCount(),
+                    currCellField="",currCellValue="", curCellColumn="", currCellType="";
+                for(var j=0; j < rowCount; j++){
+                    currCellField   = filterSheet.getCell(j,0).text();
+                    currCellValue   = filterSheet.getCell(j,1).text();
+                    
+                    if(!currCellField) break; //end loop already if there are no more succeeding records
+
+                    console.log("currCellField = "+currCellField);
+                    console.log("currCellValue = "+currCellValue);
+
+                    curCellColumn   = currCellField.split(".")[1];
+                    currCellType    = currCellField.split(".")[2];
+
+                    console.log("curCellColumn = "+curCellColumn);
+                    console.log("currCellValue = "+currCellValue);
+
+                    if(currCellType == "LU"){
+                        qryFilters += curCellColumn+ " = " + currCellValue.split("|")[0];
+                    }
+                    
+                    console.log("qryFilters = "+qryFilters);
                 }
-            });
+
+            }else if(currSheetName == "Headers"){
+                headerSheet = spread.sheets[i];
+
+                //loop through each cell's column header until reaching a blank column
+                var ctr = 0, currentCellVal = String(headerSheet.getCell(0,ctr).text());
+                while(currentCellVal){  
+                    if(currentCellVal){
+                        columnHeaders.push(currentCellVal);
+                    }
+                    ctr++;
+                    currentCellVal = String(headerSheet.getCell(0,ctr).text())
+                }  
+                
+                // Set Column Headers
+                if(columnHeaders.length > 0){
+                    var qry = "SELECT COUNT(id) FROM "+sourceObject;
+                    if(qryFilters) qry += " WHERE " +qryFilters;
+                    rbf_selectNumber(qry, function(data){
+                        if(parseInt(data) > 0){
+                            noOfRecords = parseInt(data);
+                            retrieveRecords();                  //There are records related to the Source Object
+                        }else{
+                            presetColumnHeaders();              //There are NO records related to the Source Object
+                        }
+                    });
+                }
+            }
         }
     }
 
@@ -114,6 +152,8 @@
             qry += ", "+ currVal;
         }
         qry += " FROM " + sourceObject;
+        if(qryFilters) qry += " WHERE " +qryFilters;
+
         columnHeaders.unshift("id");    //add record 'id' at index 1
         
         rbf_selectQuery(qry, 999, function(data){
@@ -145,14 +185,14 @@
     /* Adds the records in the spreadjs sheet depending on the JSON data set */
     function populateRecords(tableData){
 
-        activeSheet.setDataSource(tableData);
+        headerSheet.setDataSource(tableData);
 
         setPicklistOrLookup();
         resizeColumns();
 
         if(noOfRecords > 0){
             addNewRow(true);//add 1 new default row
-            swal("Finished loading "+noOfRecords+" records using the chosen template", "", "success").then((value) => {
+            swal("Finished loading "+noOfRecords+" records using the chosen template", "You may see the records in the 'Headers' sheet", "success").then((value) => {
                 detectChangedSheet();
             });
         }else{
@@ -180,7 +220,7 @@
                 var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
                     cellType.items( data.split("|") );
 
-                activeSheet.getCell(-1, currIndex).cellType(cellType);
+                headerSheet.getCell(-1, currIndex).cellType(cellType);
             }
         });
     }
@@ -194,8 +234,6 @@
                 rbf_selectQuery(qry, 999, function(data2){
                     if(data2){
                         var lookupValuesArr = [], lookupValuesJson = {};
-                        // console.log("in convertToLookup");
-                        // console.log(data2);
                         for(var i=0, len=data2.length; i < len; i++){
                             currId      = data2[i][0],
                             currName    = data2[i][1];
@@ -205,7 +243,7 @@
                         var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
                             cellType.items( lookupValuesArr );
 
-                        activeSheet.getCell(-1, currIndex).cellType(cellType);
+                        headerSheet.getCell(-1, currIndex).cellType(cellType);
 
                         changeLookupIDToValues(currIndex, lookupValuesJson);
                     }
@@ -215,14 +253,11 @@
     }
    
     function changeLookupIDToValues(currIndex, lookupValuesJson){
-        // console.log(lookupValuesJson);
 
         var currCell    = "",
-            rowCount    = activeSheet.getRowCount();
+            rowCount    = headerSheet.getRowCount();
         for(var i=0; i < rowCount; i++){
-            currCell = activeSheet.getCell(i,currIndex);
-            // console.log("currCell = " +currCell.text());
-            // console.log("value = "+lookupValuesJson[currCell.text()]);
+            currCell = headerSheet.getCell(i,currIndex);
             currCell.text( lookupValuesJson[currCell.text()] );
         }
     }
@@ -230,31 +265,31 @@
     /* Resizes the columns to fix widths */
     function resizeColumns(){
         for(var i=0; i < columnHeaders.length; i++){
-            activeSheet.getCell(-1, i).width(140);  //set cell width
+            headerSheet.getCell(-1, i).width(140);  //set cell width
         }
     }
 
     /* Detects if there is a changed cell in a row then changes the background color */
     function detectChangedSheet(){
-        activeSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
+        headerSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
             if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
-                console.log("Row number " +info.row+ " has been updated.");
-                var instance = new GC.Spread.Sheets.CellRange(activeSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
+                // console.log("Row number " +info.row+ " has been updated.");
+                var instance = new GC.Spread.Sheets.CellRange(headerSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
                 instance.backColor(updatedCellColor);
 
-                var editRecord = parseInt(activeSheet.getCell(info.row, 0));
-                if( !(editRecord > 0) ) addNewRow();    //automatically add rows once user is at the last row
+                var editRecord = parseInt(headerSheet.getCell(info.row, 0));
+                if( !(editRecord > 0) ) addNewRow(false);    //automatically add rows once user is at the last row
             }
         });
     }
     
     /* Adds a new row at the bottom */
     function addNewRow(isFirstLoad){
-        var rowCount = activeSheet.getRowCount();
+        var rowCount = headerSheet.getRowCount();
 
-        var cellColorNew = activeSheet.getCell(parseInt(rowCount) - 1, 0).backColor();
+        var cellColorNew = headerSheet.getCell(parseInt(rowCount) - 1, 0).backColor();
         
-        if(cellColorNew == updatedCellColor || isFirstLoad) activeSheet.addRows(rowCount, 1); //Add 1 row after the last row
+        if(cellColorNew == updatedCellColor || isFirstLoad) headerSheet.addRows(rowCount, 1); //Add 1 row after the last row
     }
 
     /* Creates / Updates records based on the Spreadsheet */
@@ -263,6 +298,7 @@
         $("#btn-cu").attr("disabled","disabled");
 
         spreadjs_getActiveSheet();
+        
         totalRows = activeSheet.getRowCount();
 
         var totalRows = (totalRows > 1) ? totalRows -1 : totalRows;
@@ -277,9 +313,9 @@
                     var currField   = columnHeaders[j].split(".")[1],
                         currType    = columnHeaders[j].split(".")[2];
                         
-                    if(currType == "DT"){
+                    if(currType == "DT"){   //date field handling
                         fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
-                    }else{
+                    }else{                  //all other data types
                         fieldMap[currField] = (activeSheet.getValue(i,j))? activeSheet.getValue(i,j) : "";
                     }
                 }  

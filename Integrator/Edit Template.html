@@ -2,11 +2,13 @@
 <!-- TO-DO: 
         - adding tooltips to buttons
         - sheet names depending on type
+        - adding validations on what a user can do depending on the current sheet
 -->
 
 <style>
     #spreadContainer{
-        height: 200px !important;
+        height: 300px !important;
+        min-height: 300px !important;
     }
 </style>
 
@@ -130,8 +132,8 @@
             spread.sheets[1].name("Headers");
 
             //set default no. of rows / columns
-            spread.sheets[0].setRowCount(3);
-            spread.sheets[1].setRowCount(1);
+            spread.sheets[0].setRowCount(2);
+            spread.sheets[1].setRowCount(2);
             spread.sheets[0].setColumnCount(2);
 
             $("#spreadContainer").show();

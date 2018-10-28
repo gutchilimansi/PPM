@@ -65,6 +65,7 @@
             if(currSheetName == "Filters"){
                 filterSheet = spread.sheets[i];
 
+                // Build the filters that will be used in querying the records
                 var rowCount = filterSheet.getRowCount(),
                     currCellField="",currCellValue="", curCellColumn="", currCellType="";
                 for(var j=0; j < rowCount; j++){
@@ -73,20 +74,14 @@
                     
                     if(!currCellField) break; //end loop already if there are no more succeeding records
 
-                    console.log("currCellField = "+currCellField);
-                    console.log("currCellValue = "+currCellValue);
-
                     curCellColumn   = currCellField.split(".")[1];
                     currCellType    = currCellField.split(".")[2];
 
-                    console.log("curCellColumn = "+curCellColumn);
-                    console.log("currCellValue = "+currCellValue);
-
                     if(currCellType == "LU"){
                         qryFilters += curCellColumn+ " = " + currCellValue.split("|")[0];
+                    }else{
+                        qryFilters += curCellColumn+ " = " + currCellValue;
                     }
-                    
-                    console.log("qryFilters = "+qryFilters);
                 }
 
             }else if(currSheetName == "Headers"){

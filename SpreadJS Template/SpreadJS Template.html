@@ -30,6 +30,7 @@
 
     /* Loads the saved JSON file in the current template */
     function loadOriginalTemplate(){
+        $("#btn-lo").attr("disabled","disabled");
 
         spreadjs_getSpread();
         
@@ -52,7 +53,8 @@
     }
 
     /* Converts the chosen template to a template where users can enter data that will be saved into RB */
-    var columnHeaders = [], sourceObject="", noOfRecords = 0;
+    var columnHeaders = [], noOfRecords = 0,
+        sourceObject = "{!Object_Integration_Name}";  //get the source object where the records will come from
     function convertTemplateForUsers(){
 
         spreadjs_getActiveSheet();
@@ -66,22 +68,20 @@
             currentCellVal = String(activeSheet.getCell(0,ctr).text())
         }  
         
-        sourceObject = "{!R30977.Object_Integration_Name}";  //get the source object where the records will come from
         if(columnHeaders.length > 0){
-            // rbf_selectNumber("SELECT COUNT(id) FROM "+sourceObject+" WHERE Resource_List = "+ parseInt("{!id}"), function(data){
             var qry = "SELECT COUNT(id) FROM "+sourceObject;
             rbf_selectNumber(qry, function(data){
                 if(parseInt(data) > 0){
                     noOfRecords = parseInt(data);
-                    retrieveRecords();                  //There are records related to the Resource List
+                    retrieveRecords();                  //There are records related to the Source Object
                 }else{
-                    presetColumnHeaders();              //There are NO records related to the Resource List
+                    presetColumnHeaders();              //There are NO records related to the Source Object
                 }
             });
         }
     }
 
-    /* Set the default column headers for Resource Lists without Resources yet */
+    /* Set the default column headers for without Records yet */
     function presetColumnHeaders(){
         var resultArr = [], jsonObj = {};
         for(var j=0, len2=columnHeaders.length; j < len2; j++){
@@ -97,6 +97,7 @@
         - several objects query
         - searchable dropdowns
         - deleting of records
+        - single value lookup
     */
 
     /* Retrieves records from the applicable Rollbase table */
@@ -112,8 +113,7 @@
             if(currType == "PL") currVal += "#value"; 
             qry += ", "+ currVal;
         }
-        qry += " FROM " + sourceObject;//+ " WHERE Resource_List = "+ parseInt("{!id}");
-        // console.log("qry = " +qry);
+        qry += " FROM " + sourceObject;
         columnHeaders.unshift("id");    //add record 'id' at index 1
         
         rbf_selectQuery(qry, 999, function(data){
@@ -260,19 +260,18 @@
     /* Creates / Updates records based on the Spreadsheet */
     var successfulUpdate = 0, successfulCreate = 0, totalRows = 0;
     function createOrUpdateRecords(){
+        $("#btn-cu").attr("disabled","disabled");
+
         spreadjs_getActiveSheet();
         totalRows = activeSheet.getRowCount();
-        console.log("totalRows = "+totalRows);
-        // var resourceList = parseInt("{!id}");  //Resource List
+
         var totalRows = (totalRows > 1) ? totalRows -1 : totalRows;
         for(var i=0; i < totalRows; i++){
             var recordId = (noOfRecords == 0) ? 0 : parseInt(activeSheet.getValue(i, 0));
             
             var instance = new GC.Spread.Sheets.CellRange(activeSheet, i, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
             if(String(instance.backColor()) == updatedCellColor || !(recordId > 0)){ //detect if there was an update made
-                var fieldMap = {
-                    // "Resource_List"     : resourceList      //default in the current Resource list in scope
-                }
+                var fieldMap = {};
                 var startingIndex = (noOfRecords == 0) ? 0 : 1;
                 for(var j=startingIndex, len=columnHeaders.length; j < len; j++){
                     var currField   = columnHeaders[j].split(".")[1],
@@ -281,7 +280,7 @@
                     if(currType == "DT"){
                         fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
                     }else{
-                        fieldMap[currField] = activeSheet.getValue(i,j);
+                        fieldMap[currField] = (activeSheet.getValue(i,j))? activeSheet.getValue(i,j) : "";
                     }
                 }  
             
@@ -294,6 +293,9 @@
                         incrementCounter("create");
                     }, false);
                 }
+            }else{
+                // swal("There are no updates made yet.","Please create a new record or modify an existing one.","info");
+                $("#btn-cu").removeAttr("disabled");
             }
         }
         $("#spreadContainer").show();

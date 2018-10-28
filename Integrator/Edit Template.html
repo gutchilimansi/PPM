@@ -1,11 +1,21 @@
 <!-- EDIT TEMPLATE SCRIPT -->
+<!-- TO-DO: 
+        - adding tooltips to buttons
+        - sheet names depending on type
+-->
+
+<style>
+    #spreadContainer{
+        height: 200px !important;
+    }
+</style>
 
 <div id="div-buttons">
     <input type="button" id="btn-lt" class="btn btn-primary custom-btn" value="Load Template" onclick="loadTemplate()"/>
-    <input type="button" id="btn-dc" class="btn btn-secondary custom-btn" value="Pre-set Default Columns" onclick="retrieveColumns()"/>
-    <input type="button" id="btn-ss" class="btn btn-success custom-btn" value="Save Template Changes" onclick="saveSpreadsheet()"/>
+    <input type="button" id="btn-dc" class="btn btn-secondary custom-btn default-hidden" value="Pre-set Default Columns" onclick="retrieveColumns()"/>
+    <input type="button" id="btn-ss" class="btn btn-success custom-btn default-hidden" value="Save Template Changes" onclick="saveSpreadsheet()"/>
 
-    <div class="row">
+    <div class="row default-hidden">
         <div class="col-lg-4">
             <div class="input-group">
                 <input type="text" id="no-of-rows" class="form-control" placeholder="No. of rows...">
@@ -15,7 +25,6 @@
             </div><!-- /input-group -->
         </div><!-- /.col-lg-4 -->
     </div>
-
 </div>
 
 <!-- Spread.Sheets widget container -->
@@ -26,14 +35,24 @@
 
     GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
     
-    // $(function(){
+    $(function(){
         // loadSpreadsheet();
         // attachFieldOnchange();
-    // });
+
+        showSection("Template Builder Helper", false);
+    });
+
+    function showSection(sectionTitle, show){
+        rbf_showOrHideSection(rbf_getSectionIdByTitle(sectionTitle), show);
+    }
 
     function loadTemplate(){
+        $("#btn-lt").attr("disabled","disabled");
         loadSpreadsheet();
         attachFieldOnchange();
+
+        $(".default-hidden").show();
+        showSection("Template Builder Helper", true);
     }
 
     function retrieveColumns(){
@@ -44,7 +63,6 @@
                 if(data){
                     spreadjs_getActiveSheet();
                     for(var i=0, len=data.length; i < len; i++){
-                        // console.log(data[i][0]);
                         activeSheet.getCell(0,i).text(data[i][0]);
                         activeSheet.autoFitColumn(i);
                         swal("All fields have been added as default columns", "You may modify the template as necessary.", "success");
@@ -58,8 +76,7 @@
 
     function createCellComments(){
         spreadjs_getActiveSheet();
-        var comment = new GC.Spread.Sheets.Comments.Comment();       
-        // var activeSheet = spread.getActiveSheet();
+        var comment = new GC.Spread.Sheets.Comments.Comment();     
         comment.text("this is a test comment in yellow bg");
         comment.backColor("yellow");
         comment.foreColor("green");
@@ -77,7 +94,6 @@
                     dropdownValues.push(values[i][0]);
                 }
                 var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-                // var activeSheet = spread.getActiveSheet();
                 spreadjs_getActiveSheet();
                     cellType2.items(dropdownValues);
                     activeSheet.getCell(-1, columnIndex).cellType(cellType2);
@@ -88,22 +104,38 @@
     /* Loads the saved .json file in the current template */
     function loadSpreadsheet(){
         spreadjs_getSpread();
-        // spread = new GC.Spread.Sheets.Workbook(document.getElementById("spreadContainer"));
-        $.ajax({
-            url: "{!Template_File#url}",
-            datatype: "json",
-            success: function (data) {
 
-                var jsonStr = JSON.stringify(Object(data));
-                spread.fromJSON(JSON.parse(jsonStr));
-                
-                $("#spreadContainer, #other-buttons").show();
-                // swal("", 'Finished loading the JSON template of "{!name#text}"', "success");
-            },
-            error: function (e) {
-                swal("Error loading spreadsheet", e, "error");
-            }
-        });
+        if("{!Template_File#url}"){ //template is existing
+            $.ajax({
+                url: "{!Template_File#url}",
+                datatype: "json",
+                success: function (data) {
+
+                    var jsonStr = JSON.stringify(Object(data));
+                    spread.fromJSON(JSON.parse(jsonStr));
+                    
+                    $("#spreadContainer").show();
+                    swal("", 'Finished loading the template: "{!name#text}"', "success");
+                },
+                error: function (e) {
+                    swal("Error loading spreadsheet", e, "error");
+                }
+            });
+        }else{  //new template
+            //Set the number of default sheets to 2
+            spread.setSheetCount(2);
+
+            //Change the sheet names
+            spread.sheets[0].name("Filters");
+            spread.sheets[1].name("Headers");
+
+            //set default no. of rows / columns
+            spread.sheets[0].setRowCount(3);
+            spread.sheets[1].setRowCount(1);
+            spread.sheets[0].setColumnCount(2);
+
+            $("#spreadContainer").show();
+        }   
     }
 
     /* Inititate saving of spreadsheet in the Template object */
@@ -225,6 +257,68 @@
         // rbf_setFieldValue("R28766", "");                    //Rollbase Object
         rbf_setFieldValue("R28783", "");                    //Field
         rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
+    }
+
+
+
+
+    /* Adds the current Field's Integration Name as a column header in the SpreadJS Template */
+    function addCode(type){
+        spreadjs_getActiveSheet();
+        var activeRow       = activeSheet.getActiveRowIndex(),
+            activeColumn    = activeSheet.getActiveColumnIndex();
+            
+        var currCode = $("#Field_Integration_Name").val();
+        if(currCode){
+            activeSheet.getCell(activeRow,activeColumn).text(currCode);//.backColor("#85c1b9");
+            activeSheet.autoFitColumn(activeColumn);
+        }else{
+            swal("Please select a Field.", "", "error");
+        }
+        
+        if(type == 'single'){
+            convertToLookup(activeRow, activeColumn+1, currCode);
+        }
+    }
+
+    /****************************************/
+    /* SCRIPTS FROM VIEW RESOURCE LIST PAGE */
+    /****************************************/
+
+    /* Converts a column's cells to Lookup fields */
+    function convertToLookup(rowIndex, columnIndex, currColumn){
+        spreadjs_getActiveSheet();
+        var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
+        rbf_selectValue(qry, function(data){
+            if(data){
+                qry = "SELECT id, name FROM "+data;
+                rbf_selectQuery(qry, 999, function(data2){
+                    if(data2){
+                        var lookupValuesArr = [], lookupValuesJson = {};
+                        for(var i=0, len=data2.length; i < len; i++){
+                            currId      = data2[i][0],
+                            currName    = data2[i][1];
+                            lookupValuesArr.push(currId+"|"+currName);
+                            lookupValuesJson[currId] = currId+"|"+currName;
+                        }
+                        var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+                            cellType.items( lookupValuesArr );
+
+                        activeSheet.getCell(rowIndex, columnIndex).cellType(cellType);
+
+                        changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson);
+                    }
+                });
+            }
+        });
+    }
+
+    function changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson){
+        
+        var currCell = activeSheet.getCell(rowIndex, columnIndex);
+            currCell.text( lookupValuesJson[currCell.text()] );
+
+        activeSheet.getCell(-1,columnIndex).width(300);
     }
 
 </script>

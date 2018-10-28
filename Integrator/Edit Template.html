@@ -129,10 +129,10 @@
 
             //Change the sheet names
             spread.sheets[0].name("Filters");
-            spread.sheets[1].name("Headers");
+            spread.sheets[1].name("Records");
 
             //set default no. of rows / columns
-            spread.sheets[0].setRowCount(2);
+            spread.sheets[0].setRowCount(1);
             spread.sheets[1].setRowCount(2);
             spread.sheets[0].setColumnCount(2);
 
@@ -255,14 +255,11 @@
         });
     }
 
+    /* Clears the template builder helper fields - this script runs on submit of page */
     function clearHelperFields(){
-        // rbf_setFieldValue("R28766", "");                    //Rollbase Object
         rbf_setFieldValue("R28783", "");                    //Field
         rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
     }
-
-
-
 
     /* Adds the current Field's Integration Name as a column header in the SpreadJS Template */
     function addCode(type){
@@ -283,11 +280,7 @@
         }
     }
 
-    /****************************************/
-    /* SCRIPTS FROM VIEW RESOURCE LIST PAGE */
-    /****************************************/
-
-    /* Converts a column's cells to Lookup fields */
+    /* Converts a cell to a Lookup field */
     function convertToLookup(rowIndex, columnIndex, currColumn){
         spreadjs_getActiveSheet();
         var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";

@@ -1,7 +1,7 @@
 <!-- VIEW SPREADJS TEMPLATE -->
 
 <div id="div-buttons">
-    <input type="button" id="btn-lo" class="btn btn-primary custom-btn" value="Load Template" onclick="loadOriginalTemplate()"/>
+    <input type="button" id="btn-lo" class="btn btn-primary custom-btn" value="Load Template & Records" onclick="loadOriginalTemplate()"/>
     <input type="button" id="btn-cu" class="btn btn-success custom-btn default-hidden" value="Save Changes" onclick="createOrUpdateRecords()"/>
 
     <div class="row default-hidden">
@@ -84,7 +84,7 @@
                     }
                 }
 
-            }else if(currSheetName == "Headers"){
+            }else if(currSheetName == "Records"){
                 headerSheet = spread.sheets[i];
 
                 //loop through each cell's column header until reaching a blank column

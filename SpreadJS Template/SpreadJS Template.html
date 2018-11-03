@@ -55,7 +55,7 @@
     /* Converts the chosen template to a template where users can enter data that will be saved into RB */
     var columnHeaders = [], noOfRecords = 0,
         sourceObject = "{!Object_Integration_Name}";  //get the source object where the records will come from
-    var headerSheet = "", filterSheet = "", qryFilters ="";
+    var filterSheet = "", qryFilters ="";
     function convertTemplateForUsers(){
         
         //Loop through each Sheet
@@ -84,46 +84,51 @@
                     }
                 }
 
-            }else if(currSheetName == "Records"){
-                headerSheet = spread.sheets[i];
+            }else if(currSheetName.indexOf("Records") >= -1){
+                var currRecordsSheet = spread.sheets[i],
+                    currColumnHeaders = [];
 
                 //loop through each cell's column header until reaching a blank column
-                var ctr = 0, currentCellVal = String(headerSheet.getCell(0,ctr).text());
-                while(currentCellVal){  
+                var ctr = 0, currentCellVal = String(currRecordsSheet.getCell(0,ctr).text());
+                while(currentCellVal){
                     if(currentCellVal){
-                        columnHeaders.push(currentCellVal);
+                        currColumnHeaders.push(currentCellVal);
                     }
                     ctr++;
-                    currentCellVal = String(headerSheet.getCell(0,ctr).text())
-                }  
-                
+                    currentCellVal = String(currRecordsSheet.getCell(0,ctr).text())
+                }
+
                 // Set Column Headers
-                if(columnHeaders.length > 0){
-                    var qry = "SELECT COUNT(id) FROM "+sourceObject;
-                    if(qryFilters) qry += " WHERE " +qryFilters;
-                    rbf_selectNumber(qry, function(data){
-                        if(parseInt(data) > 0){
-                            noOfRecords = parseInt(data);
-                            retrieveRecords();                  //There are records related to the Source Object
-                        }else{
-                            presetColumnHeaders();              //There are NO records related to the Source Object
-                        }
-                    });
+                if(currColumnHeaders.length > 0){
+                    retrieveColumns(currRecordsSheet, currColumnHeaders);    
                 }
             }
         }
     }
 
+    function retrieveColumns(recordsSheet, columnHeaders){
+        var qry = "SELECT COUNT(id) FROM "+sourceObject;
+        if(qryFilters) qry += " WHERE " +qryFilters;
+        rbf_selectNumber(qry, function(data){
+            if(parseInt(data) > 0){
+                noOfRecords = parseInt(data);
+                retrieveRecords(recordsSheet, columnHeaders, noOfRecords);                  //There are records related to the Source Object
+            }else{
+                presetColumnHeaders(currRecordsSheet, columnHeaders, noOfRecords);              //There are NO records related to the Source Object
+            }
+        });
+    }
+
     /* Set the default column headers for without Records yet */
-    function presetColumnHeaders(){
+    function presetColumnHeaders(currRecordsSheet, currColumnHeaders, noOfRecords){
         var resultArr = [], jsonObj = {};
-        for(var j=0, len2=columnHeaders.length; j < len2; j++){
-                var currColumn  = columnHeaders[j].split(".")[1];
+        for(var j=0, len2=currColumnHeaders.length; j < len2; j++){
+                var currColumn  = currColumnHeaders[j].split(".")[1];
                 jsonObj[currColumn] = "";
             }
         
         resultArr.push(jsonObj);
-        if(resultArr) populateRecords(resultArr);   //Add column headers only without any records
+        if(resultArr) populateRecords(resultArr, currRecordsSheet, currColumnHeaders, noOfRecords);  //Add column headers only without any records
     }
 
     /* To-do:
@@ -134,7 +139,7 @@
     */
 
     /* Retrieves records from the applicable Rollbase table */
-    function retrieveRecords(){
+    function retrieveRecords(currRecordsSheet, columnHeaders, noOfRecords){
         var currVal         = "", currType = "",
             qry             = "SELECT id";
 
@@ -150,20 +155,20 @@
         if(qryFilters) qry += " WHERE " +qryFilters;
 
         columnHeaders.unshift("id");    //add record 'id' at index 1
-        
+
         rbf_selectQuery(qry, 999, function(data){
-            convert2dArrColumnsToJSON(data);
+            convert2dArrColumnsToJSON(data, currRecordsSheet, columnHeaders, noOfRecords);
         });
     }
 
     /* Converts the given 2d array columns result set to a JSON object */
-    function convert2dArrColumnsToJSON(arr){
+    function convert2dArrColumnsToJSON(arr, currRecordsSheet, currColumnHeaders, noOfRecords){
         var resultArr = [];
         for(var i=0, len=arr.length; i < len; i++){
             var jsonObj = {};
-            for(var j=0, len2=columnHeaders.length; j < len2; j++){
-                var currColumn  = (j > 0) ? columnHeaders[j].split(".")[1] : columnHeaders[j],
-                    currType    = columnHeaders[j].split(".")[2];
+            for(var j=0, len2=currColumnHeaders.length; j < len2; j++){
+                var currColumn  = (j > 0) ? currColumnHeaders[j].split(".")[1] : currColumnHeaders[j],
+                    currType    = currColumnHeaders[j].split(".")[2];
                     
                 if(currType == "DT"){
                     jsonObj[currColumn] = formatDate(arr[i][j]);  
@@ -174,54 +179,54 @@
             resultArr.push(jsonObj);
         }
         
-        populateRecords(resultArr);
+        populateRecords(resultArr, currRecordsSheet, currColumnHeaders, noOfRecords);
     }
     
     /* Adds the records in the spreadjs sheet depending on the JSON data set */
-    function populateRecords(tableData){
+    function populateRecords(tableData, currRecordsSheet, currColumnHeaders, noOfRecords){
 
-        headerSheet.setDataSource(tableData);
+        currRecordsSheet.setDataSource(tableData);
 
-        setPicklistOrLookup();
-        resizeColumns();
+        setPicklistOrLookup(currRecordsSheet, currColumnHeaders);
+        resizeColumns(currRecordsSheet, currColumnHeaders);
 
         if(noOfRecords > 0){
-            addNewRow(true);//add 1 new default row
-            swal("Finished loading "+noOfRecords+" records using the chosen template", "You may see the records in the 'Records' sheet", "success").then((value) => {
-                detectChangedSheet();
+            addNewRow(true, currRecordsSheet);//add 1 new default row
+            swal("Finished loading "+noOfRecords+" records using the chosen template", "You may see the records in the 'Records' sheet(s)", "success").then((value) => {
+                detectChangedSheets();
             });
         }else{
             swal("There are no records under the selected object","You may now add new records","info");
         }
     }
 
-    function setPicklistOrLookup(){
-        for(var i=1, len=columnHeaders.length; i < len; i++){
-            var currColumn  = columnHeaders[i],
+    function setPicklistOrLookup(currRecordsSheet, currColumnHeaders){
+        for(var i=1, len=currColumnHeaders.length; i < len; i++){
+            var currColumn  = currColumnHeaders[i],
                 currType    = currColumn.split(".")[2];
             if(currType == "PL"){
-                convertToPicklist(i,currColumn);
+                convertToPicklist(i,currColumn,currRecordsSheet);
             }else if(currType == "LU"){
-                convertToLookup(i,currColumn);
+                convertToLookup(i,currColumn,currRecordsSheet);
             }
         }
     }
 
     /* Converts a column's cells to Picklist fields */
-    function convertToPicklist(currIndex, currColumn){
+    function convertToPicklist(currIndex, currColumn,currRecordsSheet){
         var qry = "SELECT Picklist_Values FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
         rbf_selectValue(qry, function(data){
             if(data){
                 var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
                     cellType.items( data.split("|") );
 
-                headerSheet.getCell(-1, currIndex).cellType(cellType);
+                currRecordsSheet.getCell(-1, currIndex).cellType(cellType);
             }
         });
     }
 
     /* Converts a column's cells to Lookup fields */
-    function convertToLookup(currIndex, currColumn){
+    function convertToLookup(currIndex, currColumn,currRecordsSheet){
         var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
         rbf_selectValue(qry, function(data){
             if(data){
@@ -238,7 +243,7 @@
                         var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
                             cellType.items( lookupValuesArr );
 
-                        headerSheet.getCell(-1, currIndex).cellType(cellType);
+                        currRecordsSheet.getCell(-1, currIndex).cellType(cellType);
 
                         changeLookupIDToValues(currIndex, lookupValuesJson);
                     }
@@ -247,44 +252,57 @@
         });
     }
    
-    function changeLookupIDToValues(currIndex, lookupValuesJson){
+    function changeLookupIDToValues(currIndex, lookupValuesJson, currRecordsSheet){
 
         var currCell    = "",
-            rowCount    = headerSheet.getRowCount();
+            rowCount    = currRecordsSheet.getRowCount();
         for(var i=0; i < rowCount; i++){
-            currCell = headerSheet.getCell(i,currIndex);
+            currCell = currRecordsSheet.getCell(i,currIndex);
             currCell.text( lookupValuesJson[currCell.text()] );
         }
     }
 
     /* Resizes the columns to fix widths */
-    function resizeColumns(){
-        for(var i=0; i < columnHeaders.length; i++){
-            headerSheet.getCell(-1, i).width(140);  //set cell width
+    function resizeColumns(currRecordsSheet, currColumnHeaders){
+        for(var i=0; i < currColumnHeaders.length; i++){
+            currRecordsSheet.getCell(-1, i).width(140);  //set cell width
         }
     }
 
     /* Detects if there is a changed cell in a row then changes the background color */
-    function detectChangedSheet(){
-        headerSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
-            if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
-                // console.log("Row number " +info.row+ " has been updated.");
-                var instance = new GC.Spread.Sheets.CellRange(headerSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
-                instance.backColor(updatedCellColor);
+    function detectChangedSheets(){
+        var currentSheets = spread.getSheetCount(), currSheetName="";
+        for(var i=0, len=currentSheets; i < len; i++){
+            currSheetName = spread.sheets[i].name();
+            console.log("currSheetName = "+currSheetName);
+            if(currSheetName.indexOf("Records") >= -1){
+                var currRecordsSheet = spread.sheets[i];
+                        
+                    
+                    spreadjs_getActiveSheet();
+                        
+                    currRecordsSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
+                    if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
+                        console.log("currRecordsSheet updated: "+currRecordsSheet.name());
+                        console.log("Row number " +info.row+ " has been updated.");
+                        var instance = new GC.Spread.Sheets.CellRange(currRecordsSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
+                        instance.backColor(updatedCellColor);
 
-                var editRecord = parseInt(headerSheet.getCell(info.row, 0));
-                if( !(editRecord > 0) ) addNewRow(false);    //automatically add rows once user is at the last row
+                        var editRecord = parseInt(currRecordsSheet.getCell(info.row, 0));
+                        if( !(editRecord > 0) ) addNewRow(false, currRecordsSheet);    //automatically add rows once user is at the last row
+                    }
+                });
             }
-        });
+        }
     }
     
     /* Adds a new row at the bottom */
-    function addNewRow(isFirstLoad){
-        var rowCount = headerSheet.getRowCount();
+    function addNewRow(isFirstLoad, currRecordsSheet){
+        var rowCount = currRecordsSheet.getRowCount();
 
-        var cellColorNew = headerSheet.getCell(parseInt(rowCount) - 1, 0).backColor();
+        var cellColorNew = currRecordsSheet.getCell(parseInt(rowCount) - 1, 0).backColor();
         
-        if(cellColorNew == updatedCellColor || isFirstLoad) headerSheet.addRows(rowCount, 1); //Add 1 row after the last row
+        if(cellColorNew == updatedCellColor || isFirstLoad) currRecordsSheet.addRows(rowCount, 1); //Add 1 row after the last row
     }
 
     /* Creates / Updates records based on the Spreadsheet */
@@ -292,41 +310,49 @@
     function createOrUpdateRecords(){
         $("#btn-cu").attr("disabled","disabled");
 
-        spreadjs_getActiveSheet();
-        
-        totalRows = activeSheet.getRowCount();
+        var currentSheets = spread.getSheetCount(), currSheetName="";
+        for(var i=0, len=currentSheets; i < len; i++){
+            currSheetName = spread.sheets[i].name();
+            if(currSheetName.indexOf("Records") >= -1){
+                var currRecordsSheet = spread.sheets[i];
+                    totalRows = currRecordsSheet.getRowCount();
 
-        var totalRows = (totalRows > 1) ? totalRows -1 : totalRows;
-        for(var i=0; i < totalRows; i++){
-            var recordId = (noOfRecords == 0) ? 0 : parseInt(activeSheet.getValue(i, 0));
-            
-            var instance = new GC.Spread.Sheets.CellRange(activeSheet, i, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
-            if(String(instance.backColor()) == updatedCellColor || !(recordId > 0)){ //detect if there was an update made
-                var fieldMap = {};
-                var startingIndex = (noOfRecords == 0) ? 0 : 1;
-                for(var j=startingIndex, len=columnHeaders.length; j < len; j++){
-                    var currField   = columnHeaders[j].split(".")[1],
-                        currType    = columnHeaders[j].split(".")[2];
-                        
-                    if(currType == "DT"){   //date field handling
-                        fieldMap[currField] = formatDate(activeSheet.getValue(i,j));
-                    }else{                  //all other data types
-                        fieldMap[currField] = (activeSheet.getValue(i,j))? activeSheet.getValue(i,j) : "";
+                var totalRows = (totalRows > 1) ? totalRows -1 : totalRows;
+                for(var i=0; i < totalRows; i++){
+                    
+                    var instance = new GC.Spread.Sheets.CellRange(currRecordsSheet, i, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
+                    if(String(instance.backColor()) == updatedCellColor){ //detect if there was an update made //|| !(recordId > 0)
+                        var recordId = parseInt(currRecordsSheet.getValue(i, 0)); //(noOfRecords == 0) ? 0 : 
+
+                        var fieldMap = {};
+                        var startingIndex = (noOfRecords == 0) ? 0 : 1;
+                        for(var j=startingIndex, len=currRecordsSheet.length; j < len; j++){
+                            var currField   = currRecordsSheet[j].split(".")[1],
+                                currType    = currRecordsSheet[j].split(".")[2];
+                                
+                            if(currType == "DT"){   //date field handling
+                                fieldMap[currField] = formatDate(currRecordsSheet.getValue(i,j));
+                            }else{                  //all other data types
+                                fieldMap[currField] = (currRecordsSheet.getValue(i,j))? currRecordsSheet.getValue(i,j) : "";
+                            }
+                        }  
+                    
+                        if(recordId > 0){
+                            // alert("fieldMap = "+fieldMap);
+                            // alert(JSON.stringify(fieldMap));
+                            rbf_updateRecord(sourceObject, recordId, fieldMap, false, function(data){
+                                incrementCounter("update");
+                            }, false);
+                        }else{
+                            rbf_createRecord(sourceObject, fieldMap, false, function(data){
+                                incrementCounter("create");
+                            }, false);
+                        }
+                    }else{
+                        // swal("There are no updates made yet.","Please create a new record or modify an existing one.","info");
+                        $("#btn-cu").removeAttr("disabled");
                     }
-                }  
-            
-                if(recordId > 0){
-                    rbf_updateRecord(sourceObject, recordId, fieldMap, false, function(data){
-                        incrementCounter("update");
-                    }, false);
-                }else{
-                    rbf_createRecord(sourceObject, fieldMap, false, function(data){
-                        incrementCounter("create");
-                    }, false);
                 }
-            }else{
-                // swal("There are no updates made yet.","Please create a new record or modify an existing one.","info");
-                $("#btn-cu").removeAttr("disabled");
             }
         }
         $("#spreadContainer").show();

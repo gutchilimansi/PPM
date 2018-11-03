@@ -22,10 +22,19 @@
             <div class="input-group">
                 <input type="text" id="no-of-rows" class="form-control" placeholder="No. of rows...">
                 <span class="input-group-btn">
-                <button class="btn btn-default" type="button" onclick="addRows()">Add Rows</button>
+                    <button class="btn btn-default" type="button" onclick="addRows()">Add Rows</button>
                 </span>
-            </div><!-- /input-group -->
-        </div><!-- /.col-lg-4 -->
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="input-group">
+                <input type="text" id="sheet-name" class="form-control" placeholder="Sheet Name">
+                <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" onclick="addRecordsSheet()">Add Records Sheet</button>
+                </span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -138,6 +147,25 @@
 
             $("#spreadContainer").show();
         }   
+    }
+
+    /* Dynamically adds a new Sheet */
+    function addRecordsSheet(){
+        var currentSheetCount   = spread.getSheetCount(),
+            sheetName           = String($("#sheet-name").val());
+        
+        if(sheetName){
+            // Create a new sheet and add it at next to the last sheet's position.
+            var sheet = new GC.Spread.Sheets.Worksheet();
+                sheet.name("Records - "+sheetName);
+                spread.addSheet(currentSheetCount+1, sheet);
+                spread.sheets[currentSheetCount].setRowCount(2);
+                spread.setActiveSheetIndex(currentSheetCount);
+
+                swal("A new sheet 'Records - " +sheetName+ "' has been added", "" , "success");
+        }else{
+            swal("Error", "Please enter a Sheet Name", "error");
+        }
     }
 
     /* Inititate saving of spreadsheet in the Template object */

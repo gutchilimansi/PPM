@@ -3,6 +3,7 @@
         - adding tooltips to buttons
         - sheet names depending on type
         - adding validations on what a user can do depending on the current sheet
+        - change REST approach to client-side approach to remove un/pw
 -->
 
 <style>
@@ -53,11 +54,17 @@
         showSection("Template Builder Helper", false);
     });
 
+    var RB_Object = "RB_Object", RB_Field = "RB_Field";
     function attachEvent_RBObject(){
         $("#select-rb-objects").on("change", function(){
+            
+            //clear values onchange of parent object:
+            rbf_setFieldValue(RB_Field, "");
+            rbf_setFieldValue(RB_Object, "");
+
             var selectedObj = String($(this).val());
             if(selectedObj){
-                rbf_setFieldValue("RB_Object", selectedObj);
+                rbf_setFieldValue(RB_Object, selectedObj);
                 getObjectFields(selectedObj);
             }
         });
@@ -65,13 +72,14 @@
 
     function attachEvent_RBField(){
         $("#select-rb-fields").on("change", function(){
-            var selectedField = String($(this).val());
-            // console.log("selectedField = "+selectedField);
-            if(selectedField){
-                var integName = rbf_getFieldValue("RB_Object") + "." + selectedField;
-                rbf_setFieldValue("RB_Field", selectedField);
+            var selectedFieldName   = String($(this).val()),
+                selectedDataName    = String($(this).find(":selected").attr("dataname"));
+            if(selectedFieldName && selectedDataName){
+                var integName =  selectedFieldName + "||" + selectedDataName;
+                rbf_setFieldValue(RB_Field, selectedFieldName);
                 rbf_setFieldValue("Field_Integration_Name", integName);
-                console.log("selectedField = "+selectedField);
+            }else{
+                swal("Invalid Field", "Incorrect Field Name or Data Name", "Error");
             }
         });
     }
@@ -81,12 +89,14 @@
         r_login(g_un, g_pw, function(session){ // Initiate first login to generate first session
             if(session){
                 r_getObjectDefNames(session, function(data){
+                    // console.log("all objects:");
+                    // console.log(data);
                     if(data){
                         var RB_Objects = "";
                         $.each(data, function(index,value) {
-                            RB_Objects += "<option value='"+value+"'>"+value+"</option>";
+                            //check and add 'non-system' objects:
+                            if(value.indexOf("$") == -1 ) RB_Objects += "<option value='"+value+"'>"+value+"</option>";
                         });
-                        // console.log("RB_Objects = "+RB_Objects);
                         $("#select-rb-objects").append(RB_Objects);
                         attachEvent_RBObject();
                         attachEvent_RBField();
@@ -96,25 +106,33 @@
         });   
     }
 
+    var retrievedColumns; //global variable holder for retrieved fields
     /* Retrieves the Fields under the selected RB object */
     function getObjectFields(obj){
         r_login(g_un, g_pw, function(session){ // Initiate first login to generate first session
             if(session){
                 r_getObjectDef(session, obj, function(data){
                     if(data){
-                        console.log(data);
+                        retrievedColumns = []; //clear current global field value
+                        // console.log(data);
                         $("#select-rb-fields").html("");    //clear the field before appending new options
                         var objName = $(data).find("SingularName").text();
                         var objFields = $(data).find("DataFieldDef");
         
-                        var isReadOnly, currField;
+                        var isSystem, isReadOnly,
+                            fieldName, dataName;
                         var RB_fields = "<option value=''>Please Select...</option>";
                         $(objFields).each(function(){
-                            isReadOnly = String(this.getAttribute("isReadOnly")) == "true";
+
+                            //Do not show the following field with the following attributes:
+                            isSystem    = String(this.getAttribute("isSystem")) == "true";
+                            isReadOnly  = String(this.getAttribute("isReadOnly")) == "true";
                             
-                            if(!isReadOnly){
-                                currField = this.getAttribute("fieldName");
-                                RB_fields += "<option value='"+currField+"'>"+currField+"</option>";
+                            if(!isSystem && !isReadOnly){
+                                fieldName   = this.getAttribute("fieldName");
+                                dataName    = this.getAttribute("dataName");
+                                RB_fields += "<option value='"+fieldName+"' dataname='"+dataName+"' >"+fieldName+"</option>";
+                                retrievedColumns.push(fieldName+"||"+dataName);
                             }
                         });
                         
@@ -159,11 +177,6 @@
     } //(end)r_getObjectDefNames
 
 
-
-/************/
-/* ORIGINAL */
-/************/
-
     function showSection(sectionTitle, show){
         rbf_showOrHideSection(rbf_getSectionIdByTitle(sectionTitle), show);
     }
@@ -171,56 +184,31 @@
     function loadTemplate(){
         $("#btn-lt").attr("disabled","disabled");
         loadSpreadsheet();
-        attachFieldOnchange();
+        // attachFieldOnchange();
 
         $(".default-hidden").show();
         showSection("Template Builder Helper", true);
     }
 
     function retrieveColumns(){
-        var chosenObject = parseInt(rbf_getFieldValue("R28766"));
+        var chosenObject = rbf_getFieldValue(RB_Object);
         if(chosenObject){
-            var qry = "SELECT Field_Code FROM Template_Object_Field WHERE R28779 = "+chosenObject+" ORDER BY Query_Order ASC";
-            rbf_selectQuery(qry, 999, function(data){
-                if(data){
+            // var qry = "SELECT Field_Code FROM Template_Object_Field WHERE R28779 = "+chosenObject+" ORDER BY Query_Order ASC";
+            // rbf_selectQuery(qry, 999, function(data){
+                if(retrievedColumns){
                     spreadjs_getActiveSheet();
-                    for(var i=0, len=data.length; i < len; i++){
-                        activeSheet.getCell(0,i).text(data[i][0]);
+                    for(var i=0, len=retrievedColumns.length; i < len; i++){
+                        activeSheet.getCell(0,i).text(retrievedColumns[i]);
                         activeSheet.autoFitColumn(i);
                         swal("All fields have been added as default columns", "You may modify the template as necessary.", "success");
                     }
+                }else{
+                    swal("There are no Fields under the selected object", "", "error");
                 }
-            });
+            // });
         }else{
             swal("Please select a Rollbase Object", "", "error");
         }
-    }
-
-    function createCellComments(){
-        spreadjs_getActiveSheet();
-        var comment = new GC.Spread.Sheets.Comments.Comment();     
-        comment.text("this is a test comment in yellow bg");
-        comment.backColor("yellow");
-        comment.foreColor("green");
-        // comment.displayMode(GC.Spread.Sheets.Comments.DisplayMode.alwaysShown);
-        activeSheet.getCell(2,2).comment(comment);
-    }
-
-    function getDropdownValues(fieldName, tableName, columnIndex){
-        var qry = "SELECT "+fieldName+" FROM "+tableName;
-        rbf_selectQuery(qry, 999, function(data){
-            if(data){
-                var values = data;
-                var dropdownValues = [];
-                for(var i=0, len=values.length; i < len;i++){
-                    dropdownValues.push(values[i][0]);
-                }
-                var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-                spreadjs_getActiveSheet();
-                    cellType2.items(dropdownValues);
-                    activeSheet.getCell(-1, columnIndex).cellType(cellType2);
-            }
-        });
     }
 
     /* Loads the saved .json file in the current template */
@@ -314,6 +302,16 @@
         }
     } //(end)saveFileAsJson
 
+    /* Clears the template builder helper fields - this script runs on submit of page */
+    function clearHelperFields(){
+        rbf_setFieldValue(RB_Field, "");                    //Rollbase Field
+        rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
+    }
+
+    /******************/
+    /* REST FUNCTIONS */
+    /******************/
+
     /* Re-usable Rest Functions */
     var g_un = 'dev1', g_pw = 'rollbase123';
     var baseURL = "http://dev.ppm.cloud/rest/api/";
@@ -333,29 +331,6 @@
             }
         });
     } //(end)r_login
-
-    function r_create(session, obj, fields, cb){
-        var fieldSet = '';
-        $.each(fields, function(key, value) {
-            fieldSet += '<Field name="'+ key + '">' + value + '</Field>';
-        });
-        $.ajax({
-            url         :   baseURL+"create?sessionId="+session+"&output=JSON",
-            contentType :   "text/xml",
-            type        :   "POST",
-            data        : 	"<?xml version='1.0' encoding='utf-8' ?>" +
-                            "<data objName='"+obj+"' useIds='false'>" +
-                            fieldSet + "</data>",
-            success: function(resp) {
-                var data = Object(resp);
-                cb(data.id);
-            }, 
-            error: function(resp) {
-                var data = Object(resp);
-                console.log("Error in r_create: " + String(data.responseText));
-            }
-        });
-    } //(end)r_create
 
     function r_setBinaryData(session, id, fieldName, value, contentType, fileName, cb) {
         var data = new FormData();
@@ -382,77 +357,138 @@
         });
     } //(end)r_setBinaryData
 
-    /* Retrieve Integration Name based on selected field */
-    function attachFieldOnchange(){
-        $("#R28783").on("change", function(){
-            var selectedField = parseInt( $("#R28783").val() );
-            if(selectedField > 0){
-                rbf_selectValue("SELECT Field_Code FROM Template_Object_Field WHERE id = "+selectedField, function(data){
-                    $("#Field_Integration_Name").val(data).select();
-                });
+/************/
+/* ORIGINAL */
+/************/
+
+    // function showSection(sectionTitle, show){
+    //     rbf_showOrHideSection(rbf_getSectionIdByTitle(sectionTitle), show);
+    // }
+
+    // function loadTemplate(){
+    //     $("#btn-lt").attr("disabled","disabled");
+    //     loadSpreadsheet();
+    //     attachFieldOnchange();
+
+    //     $(".default-hidden").show();
+    //     showSection("Template Builder Helper", true);
+    // }
+
+    // function retrieveColumns(){
+    //     var chosenObject = parseInt(rbf_getFieldValue("R28766"));
+    //     if(chosenObject){
+    //         var qry = "SELECT Field_Code FROM Template_Object_Field WHERE R28779 = "+chosenObject+" ORDER BY Query_Order ASC";
+    //         rbf_selectQuery(qry, 999, function(data){
+    //             if(data){
+    //                 spreadjs_getActiveSheet();
+    //                 for(var i=0, len=data.length; i < len; i++){
+    //                     activeSheet.getCell(0,i).text(data[i][0]);
+    //                     activeSheet.autoFitColumn(i);
+    //                     swal("All fields have been added as default columns", "You may modify the template as necessary.", "success");
+    //                 }
+    //             }
+    //         });
+    //     }else{
+    //         swal("Please select a Rollbase Object", "", "error");
+    //     }
+    // }
+
+    function createCellComments(){
+        spreadjs_getActiveSheet();
+        var comment = new GC.Spread.Sheets.Comments.Comment();     
+        comment.text("this is a test comment in yellow bg");
+        comment.backColor("yellow");
+        comment.foreColor("green");
+        // comment.displayMode(GC.Spread.Sheets.Comments.DisplayMode.alwaysShown);
+        activeSheet.getCell(2,2).comment(comment);
+    }
+
+    function getDropdownValues(fieldName, tableName, columnIndex){
+        var qry = "SELECT "+fieldName+" FROM "+tableName;
+        rbf_selectQuery(qry, 999, function(data){
+            if(data){
+                var values = data;
+                var dropdownValues = [];
+                for(var i=0, len=values.length; i < len;i++){
+                    dropdownValues.push(values[i][0]);
+                }
+                var cellType2 = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+                spreadjs_getActiveSheet();
+                    cellType2.items(dropdownValues);
+                    activeSheet.getCell(-1, columnIndex).cellType(cellType2);
             }
         });
     }
 
-    /* Clears the template builder helper fields - this script runs on submit of page */
-    function clearHelperFields(){
-        rbf_setFieldValue("R28783", "");                    //Field
-        rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
-    }
+
+
+
+
+    /* Retrieve Integration Name based on selected field */
+    // function attachFieldOnchange(){
+    //     $("#R28783").on("change", function(){
+    //         var selectedField = parseInt( $("#R28783").val() );
+    //         if(selectedField > 0){
+    //             rbf_selectValue("SELECT Field_Code FROM Template_Object_Field WHERE id = "+selectedField, function(data){
+    //                 $("#Field_Integration_Name").val(data).select();
+    //             });
+    //         }
+    //     });
+    // }
 
     /* Adds the current Field's Integration Name as a column header in the SpreadJS Template */
-    function addCode(type){
-        spreadjs_getActiveSheet();
-        var activeRow       = activeSheet.getActiveRowIndex(),
-            activeColumn    = activeSheet.getActiveColumnIndex();
+    // function addCode(type){
+    //     spreadjs_getActiveSheet();
+    //     var activeRow       = activeSheet.getActiveRowIndex(),
+    //         activeColumn    = activeSheet.getActiveColumnIndex();
             
-        var currCode = $("#Field_Integration_Name").val();
-        if(currCode){
-            activeSheet.getCell(activeRow,activeColumn).text(currCode);//.backColor("#85c1b9");
-            activeSheet.autoFitColumn(activeColumn);
-        }else{
-            swal("Please select a Field.", "", "error");
-        }
+    //     var currCode = $("#Field_Integration_Name").val();
+    //     if(currCode){
+    //         activeSheet.getCell(activeRow,activeColumn).text(currCode);//.backColor("#85c1b9");
+    //         activeSheet.autoFitColumn(activeColumn);
+    //     }else{
+    //         swal("Please select a Field.", "", "error");
+    //     }
         
-        if(type == 'single'){
-            convertToLookup(activeRow, activeColumn+1, currCode);
-        }
-    }
+    //     if(type == 'single'){
+    //         convertToLookup(activeRow, activeColumn+1, currCode);
+    //     }
+    // }
 
     /* Converts a cell to a Lookup field */
-    function convertToLookup(rowIndex, columnIndex, currColumn){
-        spreadjs_getActiveSheet();
-        var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
-        rbf_selectValue(qry, function(data){
-            if(data){
-                qry = "SELECT id, name FROM "+data;
-                rbf_selectQuery(qry, 999, function(data2){
-                    if(data2){
-                        var lookupValuesArr = [], lookupValuesJson = {};
-                        for(var i=0, len=data2.length; i < len; i++){
-                            currId      = data2[i][0],
-                            currName    = data2[i][1];
-                            lookupValuesArr.push(currId+"|"+currName);
-                            lookupValuesJson[currId] = currId+"|"+currName;
-                        }
-                        var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-                            cellType.items( lookupValuesArr );
+    // function convertToLookup(rowIndex, columnIndex, currColumn){
+    //     spreadjs_getActiveSheet();
+    //     var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
+    //     rbf_selectValue(qry, function(data){
+    //         if(data){
+    //             qry = "SELECT id, name FROM "+data;
+    //             rbf_selectQuery(qry, 999, function(data2){
+    //                 if(data2){
+    //                     var lookupValuesArr = [], lookupValuesJson = {};
+    //                     for(var i=0, len=data2.length; i < len; i++){
+    //                         currId      = data2[i][0],
+    //                         currName    = data2[i][1];
+    //                         lookupValuesArr.push(currId+"|"+currName);
+    //                         lookupValuesJson[currId] = currId+"|"+currName;
+    //                     }
+    //                     var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+    //                         cellType.items( lookupValuesArr );
 
-                        activeSheet.getCell(rowIndex, columnIndex).cellType(cellType);
+    //                     activeSheet.getCell(rowIndex, columnIndex).cellType(cellType);
 
-                        changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson);
-                    }
-                });
-            }
-        });
-    }
+    //                     changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson);
+    //                 }
+    //             });
+    //         }
+    //     });
+    // }
 
-    function changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson){
+    // function changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson){
         
-        var currCell = activeSheet.getCell(rowIndex, columnIndex);
-            currCell.text( lookupValuesJson[currCell.text()] );
+    //     var currCell = activeSheet.getCell(rowIndex, columnIndex);
+    //         currCell.text( lookupValuesJson[currCell.text()] );
 
-        activeSheet.getCell(-1,columnIndex).width(300);
-    }
+    //     activeSheet.getCell(-1,columnIndex).width(300);
+    // }
 
 </script>

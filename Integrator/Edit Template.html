@@ -7,7 +7,7 @@
 
 <style>
     #spreadContainer{
-        height: 300px !important;
+        height: 800px !important;
         min-height: 300px !important;
     }
 </style>
@@ -49,9 +49,120 @@
     $(function(){
         // loadSpreadsheet();
         // attachFieldOnchange();
-
+        getRollbaseObjects();
         showSection("Template Builder Helper", false);
     });
+
+    function attachEvent_RBObject(){
+        $("#select-rb-objects").on("change", function(){
+            var selectedObj = String($(this).val());
+            if(selectedObj){
+                rbf_setFieldValue("RB_Object", selectedObj);
+                getObjectFields(selectedObj);
+            }
+        });
+    }
+
+    function attachEvent_RBField(){
+        $("#select-rb-fields").on("change", function(){
+            var selectedField = String($(this).val());
+            // console.log("selectedField = "+selectedField);
+            if(selectedField){
+                var integName = rbf_getFieldValue("RB_Object") + "." + selectedField;
+                rbf_setFieldValue("RB_Field", selectedField);
+                rbf_setFieldValue("Field_Integration_Name", integName);
+                console.log("selectedField = "+selectedField);
+            }
+        });
+    }
+    
+    /* Retrieves the Rollbase Objects */
+    function getRollbaseObjects(){
+        r_login(g_un, g_pw, function(session){ // Initiate first login to generate first session
+            if(session){
+                r_getObjectDefNames(session, function(data){
+                    if(data){
+                        var RB_Objects = "";
+                        $.each(data, function(index,value) {
+                            RB_Objects += "<option value='"+value+"'>"+value+"</option>";
+                        });
+                        // console.log("RB_Objects = "+RB_Objects);
+                        $("#select-rb-objects").append(RB_Objects);
+                        attachEvent_RBObject();
+                        attachEvent_RBField();
+                    }
+                });
+            }else{ console.log("Invalid Session Id"); }
+        });   
+    }
+
+    /* Retrieves the Fields under the selected RB object */
+    function getObjectFields(obj){
+        r_login(g_un, g_pw, function(session){ // Initiate first login to generate first session
+            if(session){
+                r_getObjectDef(session, obj, function(data){
+                    if(data){
+                        console.log(data);
+                        $("#select-rb-fields").html("");    //clear the field before appending new options
+                        var objName = $(data).find("SingularName").text();
+                        var objFields = $(data).find("DataFieldDef");
+        
+                        var isReadOnly, currField;
+                        var RB_fields = "<option value=''>Please Select...</option>";
+                        $(objFields).each(function(){
+                            isReadOnly = String(this.getAttribute("isReadOnly")) == "true";
+                            
+                            if(!isReadOnly){
+                                currField = this.getAttribute("fieldName");
+                                RB_fields += "<option value='"+currField+"'>"+currField+"</option>";
+                            }
+                        });
+                        
+                        // console.log("RB_fields = "+RB_fields);
+                        $("#select-rb-fields").append(RB_fields);
+                    }
+                });
+            }
+        });
+    }
+
+    function r_getObjectDefNames(session, cb){
+        $.ajax({
+            method      : "GET",
+            url         :   baseURL+"getObjectDefNames?sessionId="+session+"&output=JSON",
+            cache       :   false,
+            success: function(resp) {
+                var data = Object(resp);
+                cb(data);
+            }, 
+            error: function(resp) {
+                var data = Object(resp);
+                console.log("Error in r_getObjectDefNames: " + String(data.responseText));
+            }
+        });
+    } //(end)r_getObjectDefNames
+
+    function r_getObjectDef(session, obj, cb){
+        $.ajax({
+            method      : "GET",
+            url         :   baseURL+"getObjectDef?sessionId="+session+"&objName="+obj,
+            cache       :   false,
+            success: function(resp) {
+                var data = Object(resp);
+                cb(data);
+            }, 
+            error: function(resp) {
+                var data = Object(resp);
+                console.log("Error in r_getObjectDef: " + String(data.responseText));
+            }
+        });
+    } //(end)r_getObjectDefNames
+
+
+
+/************/
+/* ORIGINAL */
+/************/
 
     function showSection(sectionTitle, show){
         rbf_showOrHideSection(rbf_getSectionIdByTitle(sectionTitle), show);

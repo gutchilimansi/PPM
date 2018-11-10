@@ -52,8 +52,11 @@
         // attachFieldOnchange();
         getRollbaseObjects();
         showSection("Template Builder Helper", false);
-    });
+        
 
+        $("#Field_Integration_Name").attr("readonly",true).css("background-color", "#f3ecec");
+    });
+    
     var RB_Object = "RB_Object", RB_Field = "RB_Field";
     function attachEvent_RBObject(){
         $("#select-rb-objects").on("change", function(){
@@ -437,58 +440,58 @@
     // }
 
     /* Adds the current Field's Integration Name as a column header in the SpreadJS Template */
-    // function addCode(type){
-    //     spreadjs_getActiveSheet();
-    //     var activeRow       = activeSheet.getActiveRowIndex(),
-    //         activeColumn    = activeSheet.getActiveColumnIndex();
+    function addCode(type){
+        spreadjs_getActiveSheet();
+        var activeRow       = activeSheet.getActiveRowIndex(),
+            activeColumn    = activeSheet.getActiveColumnIndex();
             
-    //     var currCode = $("#Field_Integration_Name").val();
-    //     if(currCode){
-    //         activeSheet.getCell(activeRow,activeColumn).text(currCode);//.backColor("#85c1b9");
-    //         activeSheet.autoFitColumn(activeColumn);
-    //     }else{
-    //         swal("Please select a Field.", "", "error");
-    //     }
+        var currCode = $("#Field_Integration_Name").val();
+        if(currCode){
+            activeSheet.getCell(activeRow,activeColumn).text(currCode);//.backColor("#85c1b9");
+            activeSheet.autoFitColumn(activeColumn);
+        }else{
+            swal("Please select a Field.", "", "error");
+        }
         
-    //     if(type == 'single'){
-    //         convertToLookup(activeRow, activeColumn+1, currCode);
-    //     }
-    // }
+        if(type == 'single'){
+            convertToLookup(activeRow, activeColumn+1, currCode);
+        }
+    }
 
     /* Converts a cell to a Lookup field */
-    // function convertToLookup(rowIndex, columnIndex, currColumn){
-    //     spreadjs_getActiveSheet();
-    //     var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
-    //     rbf_selectValue(qry, function(data){
-    //         if(data){
-    //             qry = "SELECT id, name FROM "+data;
-    //             rbf_selectQuery(qry, 999, function(data2){
-    //                 if(data2){
-    //                     var lookupValuesArr = [], lookupValuesJson = {};
-    //                     for(var i=0, len=data2.length; i < len; i++){
-    //                         currId      = data2[i][0],
-    //                         currName    = data2[i][1];
-    //                         lookupValuesArr.push(currId+"|"+currName);
-    //                         lookupValuesJson[currId] = currId+"|"+currName;
-    //                     }
-    //                     var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
-    //                         cellType.items( lookupValuesArr );
+    function convertToLookup(rowIndex, columnIndex, currColumn){
+        spreadjs_getActiveSheet();
+        var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
+        rbf_selectValue(qry, function(data){
+            if(data){
+                qry = "SELECT id, name FROM "+data;
+                rbf_selectQuery(qry, 999, function(data2){
+                    if(data2){
+                        var lookupValuesArr = [], lookupValuesJson = {};
+                        for(var i=0, len=data2.length; i < len; i++){
+                            currId      = data2[i][0],
+                            currName    = data2[i][1];
+                            lookupValuesArr.push(currId+"|"+currName);
+                            lookupValuesJson[currId] = currId+"|"+currName;
+                        }
+                        var cellType = new GC.Spread.Sheets.CellTypes.ComboBox(); 
+                            cellType.items( lookupValuesArr );
 
-    //                     activeSheet.getCell(rowIndex, columnIndex).cellType(cellType);
+                        activeSheet.getCell(rowIndex, columnIndex).cellType(cellType);
 
-    //                     changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson);
-    //                 }
-    //             });
-    //         }
-    //     });
-    // }
+                        changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson);
+                    }
+                });
+            }
+        });
+    }
 
-    // function changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson){
+    function changeLookupIDToValues(rowIndex, columnIndex, lookupValuesJson){
         
-    //     var currCell = activeSheet.getCell(rowIndex, columnIndex);
-    //         currCell.text( lookupValuesJson[currCell.text()] );
+        var currCell = activeSheet.getCell(rowIndex, columnIndex);
+            currCell.text( lookupValuesJson[currCell.text()] );
 
-    //     activeSheet.getCell(-1,columnIndex).width(300);
-    // }
+        activeSheet.getCell(-1,columnIndex).width(300);
+    }
 
 </script>

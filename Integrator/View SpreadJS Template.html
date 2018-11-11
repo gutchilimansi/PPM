@@ -1,3 +1,6 @@
+<!-- TO-DO:
+    - handling for picklists
+-->
 <!-- VIEW SPREADJS TEMPLATE -->
 
 <div id="div-buttons">
@@ -24,6 +27,11 @@
 
     GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
 
+    var separator       = "||",
+        type_PL         = "Long";           //Picklist
+        type_RL         = "Relationship",   //Relationship
+        type_DT         = "Date";           //Date
+    
     $(function(){
         // loadOriginalTemplate();
     });
@@ -54,7 +62,7 @@
 
     /* Converts the chosen template to a template where users can enter data that will be saved into RB */
     var columnHeaders = [], noOfRecords = 0,
-        sourceObject = "{!Object_Integration_Name}";  //get the source object where the records will come from
+        sourceObject = "{!RB_Object}";  //get the source object where the records will come from
     var filterSheet = "", qryFilters ="";
     function convertTemplateForUsers(){
         
@@ -74,8 +82,8 @@
                     
                     if(!currCellField) break; //end loop already if there are no more succeeding records
 
-                    curCellColumn   = currCellField.split(".")[1];
-                    currCellType    = currCellField.split(".")[2];
+                    curCellColumn   = currCellField.split(separator)[0];
+                    currCellType    = currCellField.split(separator)[1];
 
                     if(currCellType == "LU"){
                         qryFilters += curCellColumn+ " = " + currCellValue.split("|")[0];
@@ -123,7 +131,7 @@
     function presetColumnHeaders(currRecordsSheet, currColumnHeaders, noOfRecords){
         var resultArr = [], jsonObj = {};
         for(var j=0, len2=currColumnHeaders.length; j < len2; j++){
-                var currColumn  = currColumnHeaders[j].split(".")[1];
+                var currColumn  = currColumnHeaders[j].split(separator)[0];
                 jsonObj[currColumn] = "";
             }
         
@@ -144,10 +152,10 @@
             qry             = "SELECT id";
 
         for(var i=0, len=columnHeaders.length; i < len; i++){
-            currVal = columnHeaders[i].split(".")[1];
+            currVal = columnHeaders[i].split(separator)[0];
             
             //retrieve the actual #values for picklist and lookup fields:
-            currType = columnHeaders[i].split(".")[2];
+            currType = columnHeaders[i].split(separator)[1];
             if(currType == "PL") currVal += "#value"; 
             qry += ", "+ currVal;
         }
@@ -167,10 +175,10 @@
         for(var i=0, len=arr.length; i < len; i++){
             var jsonObj = {};
             for(var j=0, len2=currColumnHeaders.length; j < len2; j++){
-                var currColumn  = (j > 0) ? currColumnHeaders[j].split(".")[1] : currColumnHeaders[j],
-                    currType    = currColumnHeaders[j].split(".")[2];
+                var currColumn  = (j > 0) ? currColumnHeaders[j].split(separator)[0] : currColumnHeaders[j],
+                    currType    = currColumnHeaders[j].split(separator)[1];
                     
-                if(currType == "DT"){
+                if(currType == type_DT){
                     jsonObj[currColumn] = formatDate(arr[i][j]);  
                 }else{
                     jsonObj[currColumn] = arr[i][j];
@@ -187,7 +195,7 @@
 
         currRecordsSheet.setDataSource(tableData);
 
-        setPicklistOrLookup(currRecordsSheet, currColumnHeaders);
+        // setPicklistOrLookup(currRecordsSheet, currColumnHeaders);
         resizeColumns(currRecordsSheet, currColumnHeaders);
 
         if(noOfRecords > 0){
@@ -203,10 +211,11 @@
     function setPicklistOrLookup(currRecordsSheet, currColumnHeaders){
         for(var i=1, len=currColumnHeaders.length; i < len; i++){
             var currColumn  = currColumnHeaders[i],
-                currType    = currColumn.split(".")[2];
-            if(currType == "PL"){
-                convertToPicklist(i,currColumn,currRecordsSheet);
-            }else if(currType == "LU"){
+                currType    = currColumn.split(separator)[1];
+            if(currType == type_PL){
+                console.log("picklist in "+currColumn);
+                // convertToPicklist(i,currColumn,currRecordsSheet);
+            }else if(currType == type_RL){
                 convertToLookup(i,currColumn,currRecordsSheet);
             }
         }
@@ -226,11 +235,11 @@
     }
 
     /* Converts a column's cells to Lookup fields */
-    function convertToLookup(currIndex, currColumn,currRecordsSheet){
-        var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
-        rbf_selectValue(qry, function(data){
-            if(data){
-                qry = "SELECT id, name FROM "+data;
+    function convertToLookup(currIndex, currColumn, currRecordsSheet){
+        // var qry = "SELECT Lookup_Table FROM Template_Object_Field WHERE Field_Code = '"+currColumn+"'";
+        // rbf_selectValue(qry, function(data){
+            // if(data){
+            var qry = "SELECT id, name FROM "+currColumn;
                 rbf_selectQuery(qry, 999, function(data2){
                     if(data2){
                         var lookupValuesArr = [], lookupValuesJson = {};
@@ -248,8 +257,8 @@
                         changeLookupIDToValues(currIndex, lookupValuesJson);
                     }
                 });
-            }
-        });
+            // }
+        // });
     }
    
     function changeLookupIDToValues(currIndex, lookupValuesJson, currRecordsSheet){
@@ -274,7 +283,7 @@
         var currentSheets = spread.getSheetCount(), currSheetName="";
         for(var i=0, len=currentSheets; i < len; i++){
             currSheetName = spread.sheets[i].name();
-            console.log("currSheetName = "+currSheetName);
+
             if(currSheetName.indexOf("Records") >= -1){
                 var currRecordsSheet = spread.sheets[i];
                         
@@ -283,8 +292,8 @@
                         
                     currRecordsSheet.bind(GC.Spread.Sheets.Events.CellChanged, function (e, info) {
                     if(info.sheetArea === GC.Spread.Sheets.SheetArea.viewport){
-                        console.log("currRecordsSheet updated: "+currRecordsSheet.name());
-                        console.log("Row number " +info.row+ " has been updated.");
+                        // console.log("currRecordsSheet updated: "+currRecordsSheet.name());
+                        // console.log("Row number " +info.row+ " has been updated.");
                         var instance = new GC.Spread.Sheets.CellRange(currRecordsSheet, info.row, -1, 1, -1, GC.Spread.Sheets.SheetArea.viewport);
                         instance.backColor(updatedCellColor);
 
@@ -313,7 +322,7 @@
         var currentSheets = spread.getSheetCount(), currSheetName="";
         for(var i=0, len=currentSheets; i < len; i++){
             currSheetName = spread.sheets[i].name();
-            if(currSheetName.indexOf("Records") >= -1){
+            if(currSheetName.indexOf("Records") >= 0){
                 var currRecordsSheet = spread.sheets[i];
                     totalRows = currRecordsSheet.getRowCount();
 
@@ -327,19 +336,17 @@
                         var fieldMap = {};
                         var startingIndex = (noOfRecords == 0) ? 0 : 1;
                         for(var j=startingIndex, len=currRecordsSheet.length; j < len; j++){
-                            var currField   = currRecordsSheet[j].split(".")[1],
-                                currType    = currRecordsSheet[j].split(".")[2];
+                            var currField   = currRecordsSheet[j].split(separator)[0],
+                                currType    = currRecordsSheet[j].split(separator)[1];
                                 
-                            if(currType == "DT"){   //date field handling
+                            if(currType == type_DT){    //date field handling
                                 fieldMap[currField] = formatDate(currRecordsSheet.getValue(i,j));
-                            }else{                  //all other data types
+                            }else{                      //all other data types
                                 fieldMap[currField] = (currRecordsSheet.getValue(i,j))? currRecordsSheet.getValue(i,j) : "";
                             }
                         }  
                     
                         if(recordId > 0){
-                            // alert("fieldMap = "+fieldMap);
-                            // alert(JSON.stringify(fieldMap));
                             rbf_updateRecord(sourceObject, recordId, fieldMap, false, function(data){
                                 incrementCounter("update");
                             }, false);

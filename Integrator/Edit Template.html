@@ -78,6 +78,7 @@
             var selectedFieldName   = String($(this).val()),
                 selectedDataName    = String($(this).find(":selected").attr("dataname"));
             if(selectedFieldName && selectedDataName){
+                selectedDataName = selectedDataName.replace("Field","");
                 var integName =  selectedFieldName + "||" + selectedDataName;
                 rbf_setFieldValue(RB_Field, selectedFieldName);
                 rbf_setFieldValue("Field_Integration_Name", integName);
@@ -117,7 +118,7 @@
                 r_getObjectDef(session, obj, function(data){
                     if(data){
                         retrievedColumns = []; //clear current global field value
-                        // console.log(data);
+                        console.log(data);
                         $("#select-rb-fields").html("");    //clear the field before appending new options
                         var objName = $(data).find("SingularName").text();
                         var objFields = $(data).find("DataFieldDef");
@@ -134,6 +135,7 @@
                             if(!isSystem && !isReadOnly){
                                 fieldName   = this.getAttribute("fieldName");
                                 dataName    = this.getAttribute("dataName");
+                                dataName    = dataName.replace("Field","");
                                 RB_fields += "<option value='"+fieldName+"' dataname='"+dataName+"' >"+fieldName+"</option>";
                                 retrievedColumns.push(fieldName+"||"+dataName);
                             }

@@ -5,6 +5,9 @@
         - adding validations on what a user can do depending on the current sheet
         - change REST approach to client-side approach to remove un/pw
 -->
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
 <style>
     #spreadContainer{
@@ -47,41 +50,43 @@
 
     GC.Spread.Sheets.LicenseKey = lc;   //Spread.Sheets License Key
     
-    $(function(){
-        // loadSpreadsheet();
-        // attachFieldOnchange();
-        getRollbaseObjects();
-        showSection("Template Builder Helper", false);
-        
-
-        $("#Field_Integration_Name").attr("readonly",true).css("background-color", "#f3ecec");
-    });
+    // $(function(){
     
-    var RB_Object = "RB_Object", RB_Field = "RB_Field";
+    var RB_Object = "RB_Object", RB_Field = "RB_Field", RB_Integ = "Field_Integration_Name";
     function attachEvent_RBObject(){
-        $("#select-rb-objects").on("change", function(){
+        $("#select-rb-objects").on("selectmenuchange", function(){
             
             //clear values onchange of parent object:
             rbf_setFieldValue(RB_Field, "");
             rbf_setFieldValue(RB_Object, "");
+            rbf_setFieldValue(RB_Integ, ""); 
 
             var selectedObj = String($(this).val());
             if(selectedObj){
                 rbf_setFieldValue(RB_Object, selectedObj);
                 getObjectFields(selectedObj);
+            }else{
+                $("#td-select-rb-fields").html("<i>Please select an Object first...</i>");
             }
         });
+        $("#select-rb-objects").selectmenu();
+       
+        var currentObject = rbf_getFieldValue("RB_Object");
+        if(currentObject){
+            $("#select-rb-objects").val( currentObject );
+            $("#select-rb-objects").selectmenu("refresh");
+        }
     }
 
     function attachEvent_RBField(){
-        $("#select-rb-fields").on("change", function(){
+        $("#select-rb-fields").on("selectmenuchange", function(){
             var selectedFieldName   = String($(this).val()),
                 selectedDataName    = String($(this).find(":selected").attr("dataname"));
             if(selectedFieldName && selectedDataName){
                 selectedDataName = selectedDataName.replace("Field","");
                 var integName =  selectedFieldName + "||" + selectedDataName;
                 rbf_setFieldValue(RB_Field, selectedFieldName);
-                rbf_setFieldValue("Field_Integration_Name", integName);
+                rbf_setFieldValue(RB_Integ, integName);
             }else{
                 swal("Invalid Field", "Incorrect Field Name or Data Name", "Error");
             }
@@ -103,11 +108,10 @@
                         });
                         $("#select-rb-objects").append(RB_Objects);
                         attachEvent_RBObject();
-                        attachEvent_RBField();
                     }
                 });
             }else{ console.log("Invalid Session Id"); }
-        });   
+        });
     }
 
     var retrievedColumns; //global variable holder for retrieved fields
@@ -118,14 +122,14 @@
                 r_getObjectDef(session, obj, function(data){
                     if(data){
                         retrievedColumns = []; //clear current global field value
-                        console.log(data);
-                        $("#select-rb-fields").html("");    //clear the field before appending new options
+                        // console.log(data);
+                        $("#td-select-rb-fields").html("");    //clear the field before appending new options
                         var objName = $(data).find("SingularName").text();
                         var objFields = $(data).find("DataFieldDef");
         
                         var isSystem, isReadOnly,
                             fieldName, dataName;
-                        var RB_fields = "<option value=''>Please Select...</option>";
+                        var RB_fields = "<select id='select-rb-fields'><option value=''>Please Select...</option>";
                         $(objFields).each(function(){
 
                             //Do not show the following field with the following attributes:
@@ -140,9 +144,11 @@
                                 retrievedColumns.push(fieldName+"||"+dataName);
                             }
                         });
-                        
+                        RB_fields += "</select>";
                         // console.log("RB_fields = "+RB_fields);
-                        $("#select-rb-fields").append(RB_fields);
+                        $("#td-select-rb-fields").append(RB_fields);
+                        $("#select-rb-fields").selectmenu();
+                        attachEvent_RBField();
                     }
                 });
             }
@@ -309,8 +315,8 @@
 
     /* Clears the template builder helper fields - this script runs on submit of page */
     function clearHelperFields(){
-        rbf_setFieldValue(RB_Field, "");                    //Rollbase Field
-        rbf_setFieldValue("Field_Integration_Name", "");    //Integration Name
+        rbf_setFieldValue(RB_Field, "");    //Rollbase Field
+        rbf_setFieldValue(RB_Integ, "");    //Integration Name
     }
 
     /******************/
@@ -495,5 +501,16 @@
 
         activeSheet.getCell(-1,columnIndex).width(300);
     }
+
+    $(document).ready(function(){
+        rbf_showOrHideField("RB_Object",false);
+        rbf_showOrHideField("RB_Field",false);
+        // loadSpreadsheet();
+        // attachFieldOnchange();
+        getRollbaseObjects();
+        showSection("Template Builder Helper", false);
+        
+        $("#Field_Integration_Name").attr("readonly",true).css("background-color", "#f3ecec");
+    });
 
 </script>

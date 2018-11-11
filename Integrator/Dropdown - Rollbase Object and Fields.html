@@ -1,28 +1,33 @@
-<!-- Latest compiled and minified CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.2/css/bootstrap-select.min.css">
-<!-- Latest compiled and minified JavaScript -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.2/js/bootstrap-select.min.js"></script>
-
 <style>
-#div-custom-select-container{
-    text-align: center;
+#tbl-custom-select-container{
+    margin: 0 auto;
 }
-.div-custom-select{
-    padding: 20px;
+#tbl-custom-select-container td{
+    padding: 5px;
+}
+#select-rb-objects-button,
+#select-rb-fields-button{
+    width: 350px;
+}
+.custom-field-label{
+    font-weight: 700;
+    padding-right: .5rem;
 }
 </style>
 
-<div id="div-custom-select-container"> 
-    <div class="div-custom-select">
-        Rollbase Object
-        <select id="select-rb-objects"> <!--class="selectpicker"-->
-            <option value="" selected>Please select...</option>
-        </select>
-    </div>
-    <div class="div-custom-select">
-        Field
-        <select id="select-rb-fields">
-            <option value="" selected>Please select...</option>
-        </select>
-    </div>
+<div id="div-custom-select-container">
+    <table id="tbl-custom-select-container">
+        <tr>
+            <td class="custom-field-label">Object</td>
+            <td>
+                <select id="select-rb-objects">
+                    <option value="" selected>Please select...</option>
+                </select>
+            </td>
+            <td class="custom-field-label">Field</td>
+            <td id="td-select-rb-fields">
+                <i>Please select an Object first...</i>
+            </td>
+        </tr>
+    </table>
 </div>

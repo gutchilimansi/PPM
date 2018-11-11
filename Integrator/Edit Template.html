@@ -104,7 +104,8 @@
                         var RB_Objects = "";
                         $.each(data, function(index,value) {
                             //check and add 'non-system' objects:
-                            if(value.indexOf("$") == -1 ) RB_Objects += "<option value='"+value+"'>"+value+"</option>";
+                            if(value.indexOf("$") == -1 && value != "COMMLOG" && value != "CUSTOMER" && value != "meeting")
+                                RB_Objects += "<option value='"+value+"'>"+value+"</option>";
                         });
                         $("#select-rb-objects").append(RB_Objects);
                         attachEvent_RBObject();

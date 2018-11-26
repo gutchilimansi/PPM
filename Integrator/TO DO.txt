@@ -1,0 +1,4 @@
+View SpreadJS Template:
+    - handling for picklists
+    - make Source Object dynamic
+    - make RB_Object dynamic

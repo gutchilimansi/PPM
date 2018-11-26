@@ -30,7 +30,7 @@
     /*                     on the Chosen Template           */
     /********************************************************/
 
-    var templateURL     = "{!R30977.Template_File#url}",    //Change the value of this field if the code is going to be re-used on another object
+    var templateURL     = "{!R30518.Template_File#url}",    //Change the value of this field if the code is going to be re-used on another object
         sourceObject    = "{!RB_Object}";                   //get the source object where the records will come from
 
     /********************************************************/
@@ -461,64 +461,4 @@
             }
         });
     } //(end)r_getObjectDefNames
-
-    /********************************************/
-    /*          Autocomplete Cell               */
-    /********************************************/
-
-    var availableTags = [
-        "ActionScript",
-        "AppleScript",
-        "Asp",
-        "BASIC",
-        "C",
-        "C++",
-        "Clojure",
-        "COBOL",
-        "ColdFusion",
-        "Erlang",
-        "Fortran",
-        "Groovy",
-        "Haskell",
-        "Java",
-        "JavaScript",
-        "Lisp",
-        "Perl",
-        "PHP",
-        "Python",
-        "Ruby",
-        "Scala",
-        "Scheme"
-    ];
-
-    
-
-    AutoCompleteCellType.prototype = new GC.Spread.Sheets.CellTypes.Text();
-    AutoCompleteCellType.prototype.createEditorElement = function (context) {
-        var editor = GC.Spread.Sheets.CellTypes.Text.prototype.createEditorElement.apply(this, arguments);
-        $(editor).autocomplete({
-            source: availableTags
-        }); // initialize autocomplete widget
-        $(editor).autocomplete("widget").attr("gcUIElement", "gcEditingInput"); // keep focus when mouse down on dropdown
-        return editor;
-    }
-    AutoCompleteCellType.prototype.isReservedKey = function (e, context) {
-        if (context.isEditing && (e.keyCode == 40 || e.keyCode == 38)) { // reserve up/down key to select items
-            return true;
-        }
-        return GC.Spread.Sheets.CellTypes.Text.prototype.isReservedKey.apply(this, arguments);
-    }
-    AutoCompleteCellType.prototype.getHitInfo = function (x, y, cellStyle, cellRect, context) {
-        return {x: x, y: y, row: context.row, col: context.col, cellRect: cellRect, sheetArea: context.sheetArea};
-    }
-        
-    function AutoCompleteCellType() {
-        spreadjs_getActiveSheet();
-        // var spread = new GC.Spread.Sheets.Workbook($("#ss")[0]);
-        // var sheet = spread.getActiveSheet();
-        activeSheet.suspendPaint(true);
-        activeSheet.setValue(0, 1, "AutoComplete", GC.Spread.Sheets.SheetArea.colHeader);
-        activeSheet.getRange(-1, 1, -1, 1).cellType(new AutoCompleteCellType()).width(100);
-        activeSheet.resumePaint(false);
-    }
 </script>

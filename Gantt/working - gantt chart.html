@@ -1,0 +1,45 @@
+       <!--Ext JS styles and scripts -->
+       <link href="../../ext-6.6.0/build/classic/theme-triton/resources/theme-triton-all.css" rel="stylesheet" type="text/css"/>
+       <script src="../../ext-6.6.0/build/ext-all-debug.js" type="text/javascript"></script>
+       <script src="../../ext-6.6.0/build/classic/theme-triton/theme-triton.js" type="text/javascript"></script>
+
+       <!--Bryntum Gantt styles and scripts -->
+       <link href="../../gantt-basic/resources/css/sch-gantt-triton-all.css" rel="stylesheet" type="text/css" />
+       <script src="../../gantt-basic/gnt-all-debug.js" type="text/javascript"></script>
+
+
+<script type="text/javascript">
+
+Ext.onReady(function(){
+
+    var ganttPanel = Ext.create('Gnt.panel.Gantt', {
+        height     : 450,
+        width      : 600,
+        renderTo   : 'gantt-container',
+        layout     : 'border',
+        crudManager : {
+           autoLoad        : true,
+           transport       : {
+               load : {
+                   method      : 'GET',
+                   url         : '../../ext-6.6.0/data.json'
+               },
+               sync : {
+                   method      : 'POST',
+                   url         : 'TODO'
+               }
+           }
+        },
+        columns    : [
+            {
+                xtype       : 'namecolumn'
+            }
+        ]
+    });
+});
+  
+</script>
+
+
+        <div class="gantt" id="gantt-container"></div>
+        </div>

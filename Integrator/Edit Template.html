@@ -290,7 +290,7 @@
     function saveFileAsJson(spreadsheet, destObj, destFile){
         try{
             var jsonVal     = JSON.stringify(spreadsheet.toJSON()),
-                base64Val   = btoa(jsonVal),
+                base64Val   = btoa(unescape(encodeURIComponent(jsonVal))),
                 recordId    = parseInt("{!id}");
 
             if(base64Val && recordId > 0){
